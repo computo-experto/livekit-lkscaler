@@ -9,6 +9,7 @@ requires-python = ">=3.12"
 members = [
   "packages/lkscaler-core",
   "packages/lkscaler-livekit",
+  "packages/lkscaler-keda",
   "e2e",
 ]
 
@@ -37,6 +38,7 @@ markers = [
 testpaths = [
   "packages/lkscaler-core/tests",
   "packages/lkscaler-livekit/tests",
+  "packages/lkscaler-keda/tests",
   "e2e/tests",
 ]
 
@@ -45,4 +47,4 @@ python_version = "3.12"
 strict = true
 ignore_missing_imports = true
 warn_unused_configs = true
-packages = ["lkscaler_core", "lkscaler_livekit"]
+packages = ["lkscaler_core", "lkscaler_livekit", "lkscaler_keda"]

@@ -1,41 +1,40 @@
-"""Test agent for E2E bin-packing verification.
+"""Lightweight long-running agent simulator for e2e scaling tests."""
 
-This agent:
-- Starts a minimal LiveKit worker process for E2E stack presence checks.
-"""
+from __future__ import annotations
 
 import logging
 import os
-
-from livekit.agents import JobContext, WorkerOptions, cli
+import signal
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-async def entrypoint(ctx: JobContext) -> None:
-    """Minimal worker entrypoint for E2E container liveness."""
-    logger.info("Worker accepted job for room %s", ctx.room.name)
-    await ctx.connect()
+_running = True
 
 
-def load_fnc() -> float:
-    """Simple load function for deterministic worker availability."""
-    return 0.0
+def _stop(*_args: object) -> None:
+    global _running
+    _running = False
+
+
+signal.signal(signal.SIGTERM, _stop)
+signal.signal(signal.SIGINT, _stop)
+
+
+def main() -> None:
+    pod_id = os.getenv("LKSCALER_POD_ID", "unknown-pod")
+    namespace = os.getenv("LKSCALER_NAMESPACE", "unknown-namespace")
+    logger.info("starting lightweight agent simulator pod=%s namespace=%s", pod_id, namespace)
+
+    heartbeat = 0
+    while _running:
+        logger.info("agent simulator heartbeat=%s pod=%s", heartbeat, pod_id)
+        heartbeat += 1
+        time.sleep(5)
+
+    logger.info("agent simulator stopping pod=%s", pod_id)
 
 
 if __name__ == "__main__":
-    api_key = os.getenv("LIVEKIT_API_KEY", "devkey")
-    api_secret = os.getenv("LIVEKIT_API_SECRET", "secret")
-    ws_url = os.getenv("LIVEKIT_URL", "ws://livekit:7880")
-
-    logger.info("Starting test worker at %s", ws_url)
-
-    worker_options = WorkerOptions(
-        entrypoint_fnc=entrypoint,
-        load_fnc=load_fnc,
-        ws_url=ws_url,
-        api_key=api_key,
-        api_secret=api_secret,
-    )
-    cli.run_app(worker_options)
+    main()

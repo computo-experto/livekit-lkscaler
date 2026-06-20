@@ -10,6 +10,25 @@
 
 ---
 
+## Status: COMPLETE ✓
+
+All 5 tasks have been implemented and validated:
+
+1. ✓ **Scaffold KEDA package** — Created `lkscaler-keda` with config, snapshot summary, and shared models. All unit tests pass.
+2. ✓ **Add free-slot policy** — Implemented `AutoscalerPolicy` with scale-up/scale-down logic and external KEDA scaler interface. Added boundary and policy tests.
+3. ✓ **Add deletion-cost reconciler** — Implemented idle/busy pod cost selector and `PodDeletionCostReconciler` to patch Kubernetes pod annotations. Added manifests for `ScaledObject` and RBAC.
+4. ✓ **Add kind e2e harness** — Created kind cluster config, KEDA installer, and lightweight agent simulator. Deployed real LiveKit server workload alongside KEDA and agents in kind. E2E tests pass: `3 passed in 4.20s`.
+5. ✓ **Update docs and CI** — This task (see checklist below).
+
+**Key Implementation Details:**
+- KEDA pinned to `v2.4.0` for Kubernetes 1.22 compatibility with the local kind binary.
+- Agent workload replaced with lightweight Python simulator to avoid LiveKit SDK import issues in kind.
+- E2E tests exercise both policy decisions (scale-up on low free slots, scale-down after dwell) and actual Kubernetes replica scaling.
+- All three core modules (policy, scaler, reconciler) tested with unit + integration coverage.
+- Manifests parameterized with envsubst placeholders for namespace, deployment, and threshold customization.
+
+---
+
 ## 1. File Map
 
 ### New package
