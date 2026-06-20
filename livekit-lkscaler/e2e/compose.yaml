@@ -56,14 +56,42 @@ services:
       timeout: 5s
       retries: 20
   agent1:
-    image: python:3.12-slim
-    command: ["sleep", "infinity"]
+    build:
+      context: ..
+      dockerfile: e2e/Dockerfile
+    environment:
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+      LKSCALER_NAMESPACE: livekit-lkscaler
+      LKSCALER_POD_ID: agent1
+      LKSCALER_ROOM_TARGET_N: "3"
+      LKSCALER_OVERFLOW_MARGIN: "1"
+      LKSCALER_RESERVATION_TTL_SEC: "30"
+      LKSCALER_ZK_SESSION_TIMEOUT_SEC: "10"
+      LKSCALER_SYNC_INTERVAL_MS: "250"
     depends_on:
       livekit:
         condition: service_healthy
+      zk1:
+        condition: service_healthy
   agent2:
-    image: python:3.12-slim
-    command: ["sleep", "infinity"]
+    build:
+      context: ..
+      dockerfile: e2e/Dockerfile
+    environment:
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+      LKSCALER_NAMESPACE: livekit-lkscaler
+      LKSCALER_POD_ID: agent2
+      LKSCALER_ROOM_TARGET_N: "3"
+      LKSCALER_OVERFLOW_MARGIN: "1"
+      LKSCALER_RESERVATION_TTL_SEC: "30"
+      LKSCALER_ZK_SESSION_TIMEOUT_SEC: "10"
+      LKSCALER_SYNC_INTERVAL_MS: "250"
     depends_on:
       livekit:
+        condition: service_healthy
+      zk1:
         condition: service_healthy

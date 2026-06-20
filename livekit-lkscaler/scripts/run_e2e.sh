@@ -18,3 +18,4 @@ scripts/wait_for_services.sh 180
 
 E2E_STACK_RUNNING=1 uv run pytest -m e2e e2e/tests/test_e2e_stack.py
 uv run pytest e2e/tests/test_compose_contract.py
+E2E_STACK_RUNNING=1 uv run pytest e2e/tests/test_e2e_binpack.py

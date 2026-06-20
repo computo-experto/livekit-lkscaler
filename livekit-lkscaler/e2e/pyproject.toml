@@ -4,7 +4,10 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
   "livekit-lkscaler",
+  "livekit-agents>=0.15.0",
+  "livekit>=0.11.0",
   "pytest>=8.2.0",
+  "pytest-asyncio>=0.24.0",
 ]
 
 [tool.uv.sources]
