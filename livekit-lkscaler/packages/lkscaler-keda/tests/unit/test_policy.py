@@ -1,5 +1,4 @@
 from lkscaler_core.snapshot import ClusterSnapshotSummary
-
 from lkscaler_keda.policy import AutoscalerPolicy
 
 

@@ -8,11 +8,11 @@ from .scaler import ExternalMetricValue, KedaExternalScaler
 __version__ = "0.1.0"
 
 __all__ = [
-	"AutoscalerDecision",
-	"AutoscalerPolicy",
-	"PodDeletionCostReconciler",
-	"ExternalMetricValue",
-	"KedaAutoscalerConfig",
-	"KedaExternalScaler",
-	"choose_deletion_cost",
+    "AutoscalerDecision",
+    "AutoscalerPolicy",
+    "PodDeletionCostReconciler",
+    "ExternalMetricValue",
+    "KedaAutoscalerConfig",
+    "KedaExternalScaler",
+    "choose_deletion_cost",
 ]

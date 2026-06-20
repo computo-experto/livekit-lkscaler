@@ -18,7 +18,9 @@ def choose_deletion_cost(
 
 
 class _PodClient(Protocol):
-    def patch_namespaced_pod(self, name: str, namespace: str, body: dict[str, object]) -> object: ...
+    def patch_namespaced_pod(
+        self, name: str, namespace: str, body: dict[str, object]
+    ) -> object: ...
 
 
 @dataclass(frozen=True)

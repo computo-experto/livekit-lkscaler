@@ -1,7 +1,6 @@
 import pytest
-from pydantic import ValidationError
-
 from lkscaler_keda.config import KedaAutoscalerConfig
+from pydantic import ValidationError
 
 
 def test_keda_autoscaler_config_defaults() -> None:

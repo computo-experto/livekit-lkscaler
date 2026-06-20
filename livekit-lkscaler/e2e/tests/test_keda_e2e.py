@@ -5,9 +5,7 @@ import subprocess
 import time
 
 import pytest
-
 from lkscaler_core.snapshot import ClusterSnapshotSummary
-
 from lkscaler_keda.policy import AutoscalerPolicy
 
 pytestmark = pytest.mark.e2e
