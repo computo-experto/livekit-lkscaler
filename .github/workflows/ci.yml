@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 jobs:
-  lint-type-test:
+  continuous-integration:
     runs-on: ubuntu-latest
     defaults:
       run:
