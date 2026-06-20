@@ -21,9 +21,6 @@ permissions:
 jobs:
   build-and-verify:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: livekit-lkscaler
     outputs:
       publish_target: ${{ steps.meta.outputs.publish_target }}
       core_version: ${{ steps.versions.outputs.core_version }}
@@ -58,11 +55,13 @@ jobs:
           python-version: "3.12"
 
       - name: Sync workspace
+        working-directory: livekit-lkscaler
         run: uv sync --all-packages --group dev
 
       - name: Resolve package versions
         id: versions
         shell: bash
+        working-directory: livekit-lkscaler
         run: |
           core_version="$(python - <<'PY'
           import tomllib
@@ -86,14 +85,17 @@ jobs:
           echo "livekit_version=${livekit_version}" >> "$GITHUB_OUTPUT"
 
       - name: Build both packages
+        working-directory: livekit-lkscaler
         run: |
           uv build packages/lkscaler-core --out-dir dist/core
           uv build packages/lkscaler-livekit --out-dir dist/livekit
 
       - name: Twine check
+        working-directory: livekit-lkscaler
         run: uv run --with twine twine check dist/core/* dist/livekit/*
 
       - name: Smoke install built wheels
+        working-directory: livekit-lkscaler
         run: |
           python -m venv .venv-publish-smoke
           .venv-publish-smoke/bin/python -m pip install --upgrade pip
@@ -101,6 +103,7 @@ jobs:
           .venv-publish-smoke/bin/python -c "import lkscaler_core; import lkscaler_livekit; print(lkscaler_core.__name__, lkscaler_livekit.__name__)"
 
       - name: Assemble dist payload
+        working-directory: livekit-lkscaler
         run: |
           mkdir -p dist/all
           cp dist/core/* dist/all/
