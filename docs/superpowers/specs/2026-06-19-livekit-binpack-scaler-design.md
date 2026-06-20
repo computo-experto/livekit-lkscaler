@@ -1,7 +1,7 @@
 # LiveKit Bin-Pack Scaler (Python) - Design Specification
 
-**Date:** 2026-06-19  
-**Status:** Approved for planning  
+**Date:** 2026-06-19
+**Status:** Approved for planning
 **Scope:** Python library for self-hosted LiveKit Agents that provides bin-pack-oriented custom `on_request` and `load_fnc` behavior using self-hosted ZooKeeper (`kazoo`).
 
 ## 1. Goal
@@ -182,6 +182,6 @@ This is required because real room liveness belongs to the job process, while di
 
 ## 12. Future extension points (post-v1)
 
-- KEDA integration package(s): Prometheus metrics and/or external scaler.
+- KEDA integration package(s): see the companion spec [2026-06-20-livekit-keda-autoscaler-design.md](2026-06-20-livekit-keda-autoscaler-design.md).
 - Weighted capacity for heterogeneous pods.
 - Strategy plugins beyond strict bin-pack.
