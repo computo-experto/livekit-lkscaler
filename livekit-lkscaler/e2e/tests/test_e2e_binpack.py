@@ -12,6 +12,7 @@ import asyncio
 import logging
 import os
 import time
+from collections.abc import Generator
 from typing import Any
 
 import pytest
@@ -20,6 +21,8 @@ from livekit import api as lkapi
 pytestmark = pytest.mark.e2e
 
 logger = logging.getLogger(__name__)
+
+type RoomPayload = dict[str, str]
 
 
 class LiveKitTestClient:
@@ -33,10 +36,10 @@ class LiveKitTestClient:
     def _run(self, coro: Any) -> Any:
         return asyncio.run(coro)
 
-    def create_room(self, room_name: str, max_participants: int = 10) -> dict[str, Any]:
+    def create_room(self, room_name: str, max_participants: int = 10) -> RoomPayload:
         """Create a room."""
 
-        async def _create_room() -> dict[str, Any]:
+        async def _create_room() -> RoomPayload:
             api = lkapi.LiveKitAPI(self.url, self.api_key, self.api_secret)
             try:
                 room = await api.room.create_room(
@@ -45,24 +48,28 @@ class LiveKitTestClient:
                         max_participants=max_participants,
                     )
                 )
-                return {"name": room.name}
+                payload: RoomPayload = {"name": room.name}
+                return payload
             finally:
-                await api.aclose()
+                await api.aclose()  # type: ignore[no-untyped-call]
 
-        return self._run(_create_room())
+        result: RoomPayload = self._run(_create_room())
+        return result
 
-    def list_rooms(self) -> list[dict[str, Any]]:
+    def list_rooms(self) -> list[RoomPayload]:
         """List all active rooms."""
 
-        async def _list_rooms() -> list[dict[str, Any]]:
+        async def _list_rooms() -> list[RoomPayload]:
             api = lkapi.LiveKitAPI(self.url, self.api_key, self.api_secret)
             try:
                 response = await api.room.list_rooms(lkapi.ListRoomsRequest())
-                return [{"name": room.name} for room in response.rooms]
+                payload: list[RoomPayload] = [{"name": room.name} for room in response.rooms]
+                return payload
             finally:
-                await api.aclose()
+                await api.aclose()  # type: ignore[no-untyped-call]
 
-        return self._run(_list_rooms())
+        result: list[RoomPayload] = self._run(_list_rooms())
+        return result
 
     def delete_room(self, room_name: str) -> None:
         """Delete a room."""
@@ -72,7 +79,7 @@ class LiveKitTestClient:
             try:
                 await api.room.delete_room(lkapi.DeleteRoomRequest(room=room_name))
             finally:
-                await api.aclose()
+                await api.aclose()  # type: ignore[no-untyped-call]
 
         self._run(_delete_room())
 
@@ -99,7 +106,7 @@ def livekit_client() -> LiveKitTestClient:
 
 
 @pytest.fixture(autouse=True)
-def cleanup_rooms(livekit_client: LiveKitTestClient) -> None:
+def cleanup_rooms(livekit_client: LiveKitTestClient) -> Generator[None, None, None]:
     """Cleanup all rooms after each test."""
     yield
     try:
@@ -130,7 +137,7 @@ def test_e2e_binpack_agent1_fills_first(livekit_client: LiveKitTestClient) -> No
     _require_stack()
 
     room_names = ["binpack-test-room-1", "binpack-test-room-2", "binpack-test-room-3"]
-    
+
     # Create rooms
     for room_name in room_names:
         livekit_client.create_room(room_name)
@@ -158,7 +165,7 @@ def test_e2e_binpack_agent2_receives_overflow(livekit_client: LiveKitTestClient)
     _require_stack()
 
     room_names = [f"binpack-overflow-room-{i}" for i in range(1, 7)]
-    
+
     # Create rooms
     for room_name in room_names:
         livekit_client.create_room(room_name)
@@ -234,13 +241,13 @@ def test_e2e_binpack_overflow_guard_enforced(livekit_client: LiveKitTestClient) 
       - agent1: 4 (3 active + 1 reservation/overflow)
       - agent2: 4 (3 active + 1 reservation/overflow)
       - agent1 or agent2: 1 (3rd active on whichever has capacity)
-    
+
     This test focuses on not crashing or behaving incorrectly under overflow.
     """
     _require_stack()
 
     room_names = [f"binpack-guard-room-{i}" for i in range(1, 10)]
-    
+
     # Create 9 rooms
     for room_name in room_names:
         try:
@@ -267,7 +274,7 @@ def test_e2e_binpack_sequential_creation_trend(livekit_client: LiveKitTestClient
     _require_stack()
 
     room_names = [f"binpack-trend-room-{i}" for i in range(1, 7)]
-    
+
     # Create rooms sequentially with pauses for load_fnc to evaluate
     for i, room_name in enumerate(room_names):
         livekit_client.create_room(room_name)
