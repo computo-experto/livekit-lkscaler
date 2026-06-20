@@ -2,8 +2,7 @@ name: Publish
 
 on:
   push:
-    tags:
-      - "release-v*"
+    branches: [main]
   workflow_dispatch:
     inputs:
       environment:
@@ -12,7 +11,7 @@ on:
         type: choice
         options:
           - testpypi
-          - both
+          - promote
 
 permissions:
   id-token: write
@@ -33,10 +32,10 @@ jobs:
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             target_input="${{ inputs.environment }}"
           else
-            target_input="both"
+            target_input="promote"
           fi
 
-          if [[ "${target_input}" != "testpypi" && "${target_input}" != "both" ]]; then
+          if [[ "${target_input}" != "testpypi" && "${target_input}" != "promote" ]]; then
             echo "Unsupported publish target: ${target_input}" >&2
             exit 1
           fi
@@ -117,7 +116,7 @@ jobs:
 
   publish-testpypi:
     needs: [build-and-verify]
-    if: ${{ needs.build-and-verify.outputs.publish_target == 'testpypi' || needs.build-and-verify.outputs.publish_target == 'both' }}
+    if: ${{ needs.build-and-verify.outputs.publish_target == 'testpypi' || needs.build-and-verify.outputs.publish_target == 'promote' }}
     runs-on: ubuntu-latest
     environment: testpypi
     permissions:
@@ -139,7 +138,7 @@ jobs:
 
   gate-testpypi-install:
     needs: [build-and-verify, publish-testpypi]
-    if: ${{ needs.build-and-verify.outputs.publish_target == 'testpypi' || needs.build-and-verify.outputs.publish_target == 'both' }}
+    if: ${{ needs.build-and-verify.outputs.publish_target == 'testpypi' || needs.build-and-verify.outputs.publish_target == 'promote' }}
     runs-on: ubuntu-latest
     steps:
       - name: Set up Python
@@ -166,7 +165,7 @@ jobs:
 
   publish-pypi:
     needs: [build-and-verify, gate-testpypi-install]
-    if: ${{ needs.build-and-verify.outputs.publish_target == 'both' && needs.gate-testpypi-install.result == 'success' }}
+    if: ${{ needs.build-and-verify.outputs.publish_target == 'promote' && needs.gate-testpypi-install.result == 'success' }}
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
