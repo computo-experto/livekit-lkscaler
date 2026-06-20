@@ -1,20 +1,22 @@
 # Quickstart
 
-This guide shows a minimal self-hosted setup using the `livekit-lkscaler` adapter hooks.
+For integrating `livekit-lkscaler` into an existing LiveKit Agent worker, start with the [Library User Guide](library-users.md).
 
-## 1. Install
+This page stays as a short repository-local example.
+
+## Install the workspace
 
 ```bash
 uv sync --all-packages --group dev
 ```
 
-For package consumers (outside this repository):
+For package consumers outside this repository:
 
 ```bash
 pip install livekit-lkscaler
 ```
 
-## 2. Build config and state dependencies
+## Minimal example
 
 ```python
 from lkscaler_core import BinpackConfig, InMemoryReservationStore, PodOccupancy
@@ -46,18 +48,8 @@ on_request = build_on_request_handler(config=config, store=store, tracker=tracke
 load_fnc = build_load_fnc(config=config, store=store, tracker=tracker)
 ```
 
-## 3. Register hooks with your worker
+## Wire the hooks
 
 Pass `on_request` and `load_fnc` to your LiveKit worker/server setup according to your SDK entrypoint.
 
-## 4. Validate locally
-
-```bash
-make milestone-gate
-```
-
-For full compose-backed E2E only:
-
-```bash
-make test-e2e
-```
+For the consumer-focused setup, prerequisites, and configuration walk-through, see [Library User Guide](library-users.md).

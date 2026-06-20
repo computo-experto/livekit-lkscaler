@@ -2,6 +2,8 @@
 
 This guide summarizes runtime behavior, failure handling, and local troubleshooting.
 
+For library setup and configuration, see [Library User Guide](library-users.md). This page only covers runtime behavior after deployment.
+
 ## Runtime model
 
 - `load_fnc` advertises availability (`0.0` winner, `1.0` loser) using cluster free-slot view.
@@ -19,25 +21,7 @@ This guide summarizes runtime behavior, failure handling, and local troubleshoot
 
 ## Local runbooks
 
-Baseline verification:
-
-```bash
-make milestone-gate
-```
-
-E2E troubleshooting:
-
-```bash
-make test-e2e
-```
-
 On E2E failure, inspect:
 
 - `e2e/artifacts/compose-ps.txt`
 - `e2e/artifacts/compose-logs.txt`
-
-Release smoke verification:
-
-```bash
-make release-verify
-```

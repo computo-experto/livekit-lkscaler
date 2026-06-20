@@ -37,6 +37,7 @@ make release-verify
 
 ## Documentation
 
+- `docs/usage/library-users.md`
 - `docs/usage/quickstart.md`
 - `docs/usage/configuration.md`
 - `docs/usage/operations.md`
