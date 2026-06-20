@@ -5,7 +5,7 @@ This guide covers coordinated release flow for lkscaler-core and livekit-lkscale
 ## Release triggers
 
 - Manual: run the Publish workflow via workflow_dispatch and choose target (`testpypi` or `both`).
-- Tag-based: push `release-vX.Y.Z` to run staged publish for both packages.
+- Tag-based: push `release-vX.Y.Z` to run staged publish for both packages at current repository versions.
 
 ## Workflow behavior
 
@@ -16,6 +16,8 @@ This guide covers coordinated release flow for lkscaler-core and livekit-lkscale
 5. Publish both packages to TestPyPI via trusted publishing.
 6. Run gate by installing both packages from TestPyPI in a clean environment.
 7. If target is `both`, publish both packages to PyPI.
+
+The TestPyPI install gate includes retries with backoff to tolerate index propagation delay.
 
 ## Local preflight
 

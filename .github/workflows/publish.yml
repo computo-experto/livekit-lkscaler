@@ -135,6 +135,7 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
           packages-dir: dist
+          skip-existing: true
 
   gate-testpypi-install:
     needs: [build-and-verify, publish-testpypi]
@@ -151,7 +152,16 @@ jobs:
         run: |
           python -m venv .venv-testpypi-gate
           .venv-testpypi-gate/bin/python -m pip install --upgrade pip
-          .venv-testpypi-gate/bin/pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ lkscaler-core==${{ needs.build-and-verify.outputs.core_version }} livekit-lkscaler==${{ needs.build-and-verify.outputs.livekit_version }}
+          for attempt in 1 2 3 4 5 6 7 8; do
+            if .venv-testpypi-gate/bin/pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ lkscaler-core==${{ needs.build-and-verify.outputs.core_version }} livekit-lkscaler==${{ needs.build-and-verify.outputs.livekit_version }}; then
+              break
+            fi
+            if [[ "${attempt}" -eq 8 ]]; then
+              echo "TestPyPI packages did not become installable after retries." >&2
+              exit 1
+            fi
+            sleep "$((attempt * 10))"
+          done
           .venv-testpypi-gate/bin/python -c "import lkscaler_core; import lkscaler_livekit; print('testpypi-gate-ok', lkscaler_core.__name__, lkscaler_livekit.__name__)"
 
   publish-pypi:
