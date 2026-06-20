@@ -104,6 +104,10 @@ jobs:
         run: |
           python -m venv .venv-publish-smoke
           .venv-publish-smoke/bin/python -m pip install --upgrade pip
+          if [ "${{ needs.select-release.outputs.package_name }}" = "livekit-lkscaler" ]; then
+            uv build packages/lkscaler-core --out-dir .smoke-dist
+            .venv-publish-smoke/bin/pip install .smoke-dist/*.whl
+          fi
           .venv-publish-smoke/bin/pip install dist/*.whl
           if [ "${{ needs.select-release.outputs.package_name }}" = "lkscaler-core" ]; then
             .venv-publish-smoke/bin/python -c "import lkscaler_core; print(lkscaler_core.__name__)"
