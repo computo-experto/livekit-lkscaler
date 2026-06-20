@@ -1,0 +1,165 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "lkscaler-core-v*"
+      - "livekit-lkscaler-v*"
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package to publish
+        required: true
+        type: choice
+        options:
+          - lkscaler-core
+          - livekit-lkscaler
+      environment:
+        description: Publish target
+        required: true
+        type: choice
+        options:
+          - testpypi
+          - pypi
+          - both
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  select-release:
+    runs-on: ubuntu-latest
+    outputs:
+      package_name: ${{ steps.select.outputs.package_name }}
+      package_dir: ${{ steps.select.outputs.package_dir }}
+      publish_target: ${{ steps.select.outputs.publish_target }}
+    steps:
+      - name: Determine package and publish target
+        id: select
+        shell: bash
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            package_input="${{ inputs.package }}"
+            target_input="${{ inputs.environment }}"
+          else
+            tag="${GITHUB_REF_NAME}"
+            if [[ "${tag}" == lkscaler-core-v* ]]; then
+              package_input="lkscaler-core"
+            elif [[ "${tag}" == livekit-lkscaler-v* ]]; then
+              package_input="livekit-lkscaler"
+            else
+              echo "Unsupported tag format: ${tag}" >&2
+              exit 1
+            fi
+            target_input="both"
+          fi
+
+          if [[ "${package_input}" == "lkscaler-core" ]]; then
+            echo "package_name=lkscaler-core" >> "$GITHUB_OUTPUT"
+            echo "package_dir=packages/lkscaler-core" >> "$GITHUB_OUTPUT"
+          elif [[ "${package_input}" == "livekit-lkscaler" ]]; then
+            echo "package_name=livekit-lkscaler" >> "$GITHUB_OUTPUT"
+            echo "package_dir=packages/lkscaler-livekit" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unsupported package: ${package_input}" >&2
+            exit 1
+          fi
+
+          if [[ "${target_input}" != "testpypi" && "${target_input}" != "pypi" && "${target_input}" != "both" ]]; then
+            echo "Unsupported publish target: ${target_input}" >&2
+            exit 1
+          fi
+
+          echo "publish_target=${target_input}" >> "$GITHUB_OUTPUT"
+
+  build-and-verify:
+    needs: select-release
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: livekit-lkscaler
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync workspace
+        run: uv sync --all-packages --group dev
+
+      - name: Build selected package
+        run: uv build "${{ needs.select-release.outputs.package_dir }}" --out-dir dist
+
+      - name: Twine check
+        run: uv run --with twine twine check dist/*
+
+      - name: Smoke install built wheel
+        run: |
+          python -m venv .venv-publish-smoke
+          .venv-publish-smoke/bin/python -m pip install --upgrade pip
+          .venv-publish-smoke/bin/pip install dist/*.whl
+          if [ "${{ needs.select-release.outputs.package_name }}" = "lkscaler-core" ]; then
+            .venv-publish-smoke/bin/python -c "import lkscaler_core; print(lkscaler_core.__name__)"
+          else
+            .venv-publish-smoke/bin/python -c "import lkscaler_livekit; print(lkscaler_livekit.__name__)"
+          fi
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ needs.select-release.outputs.package_name }}
+          path: livekit-lkscaler/dist
+
+  publish-testpypi:
+    needs: [select-release, build-and-verify]
+    if: ${{ needs.select-release.outputs.publish_target == 'testpypi' || needs.select-release.outputs.publish_target == 'both' }}
+    runs-on: ubuntu-latest
+    environment: testpypi
+    defaults:
+      run:
+        working-directory: livekit-lkscaler
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ needs.select-release.outputs.package_name }}
+          path: livekit-lkscaler/dist
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: livekit-lkscaler/dist
+
+  publish-pypi:
+    needs: [select-release, build-and-verify, publish-testpypi]
+    if: ${{ always() && (needs.select-release.outputs.publish_target == 'pypi' || needs.select-release.outputs.publish_target == 'both') && (needs.publish-testpypi.result == 'success' || needs.select-release.outputs.publish_target == 'pypi') }}
+    runs-on: ubuntu-latest
+    environment: pypi
+    defaults:
+      run:
+        working-directory: livekit-lkscaler
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ needs.select-release.outputs.package_name }}
+          path: livekit-lkscaler/dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: livekit-lkscaler/dist

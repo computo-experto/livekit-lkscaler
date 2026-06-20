@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lkscaler-core"
+version = "0.1.0"
+description = "Core bin-packing and ZooKeeper state logic for LKScaler"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+  { name = "LKScaler Maintainers" },
+]
+keywords = ["livekit", "zookeeper", "binpack", "autoscaling"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: System :: Distributed Computing",
+]
+dependencies = [
+  "kazoo>=2.11.0",
+  "pydantic>=2.8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/jmedina/lkscaler"
+Repository = "https://github.com/jmedina/lkscaler"
+Issues = "https://github.com/jmedina/lkscaler/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lkscaler_core"]

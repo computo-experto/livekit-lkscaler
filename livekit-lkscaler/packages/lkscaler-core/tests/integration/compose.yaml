@@ -1,0 +1,5 @@
+services:
+  zk1:
+    image: zookeeper:3.9
+    ports:
+      - "22181:2181"

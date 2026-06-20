@@ -1,0 +1,47 @@
+[project]
+name = "lkscaler-workspace"
+version = "0.1.0"
+description = "Workspace for the LiveKit LKScaler libraries and tests"
+readme = "README.md"
+requires-python = ">=3.12"
+
+[tool.uv.workspace]
+members = [
+  "packages/lkscaler-core",
+  "packages/lkscaler-livekit",
+  "e2e",
+]
+
+[dependency-groups]
+dev = [
+  "mypy>=1.10.0",
+  "pytest>=8.2.0",
+  "pytest-cov>=5.0.0",
+  "ruff>=0.5.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra"
+markers = [
+  "e2e: tests that require the docker-compose E2E stack",
+]
+testpaths = [
+  "packages/lkscaler-core/tests",
+  "packages/lkscaler-livekit/tests",
+  "e2e/tests",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+warn_unused_configs = true
+packages = ["lkscaler_core", "lkscaler_livekit"]

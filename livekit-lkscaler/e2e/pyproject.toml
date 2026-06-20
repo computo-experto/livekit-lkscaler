@@ -1,0 +1,11 @@
+[project]
+name = "lkscaler-e2e"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "livekit-lkscaler",
+  "pytest>=8.2.0",
+]
+
+[tool.uv.sources]
+livekit-lkscaler = { workspace = true }
