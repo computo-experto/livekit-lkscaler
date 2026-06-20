@@ -2,6 +2,8 @@
 
 `BinpackConfig` controls admission, overflow safety, and synchronization behavior.
 
+For a consumer-oriented explanation of which settings matter and how to start, see [Library User Guide](library-users.md).
+
 ## Fields
 
 - `namespace` (`str`): logical namespace used for cluster state partitioning.
