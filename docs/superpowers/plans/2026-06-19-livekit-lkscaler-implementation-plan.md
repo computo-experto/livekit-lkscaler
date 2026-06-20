@@ -290,14 +290,16 @@ Exit criteria:
 Deliverables:
 
 - Local `release-preflight` command combining quality gate + release smoke validation.
-- TestPyPI install verification command for each publishable package.
+- Coordinated publish workflow that builds and publishes both packages together.
+- TestPyPI install gate that validates both packages before PyPI publish.
 - Release runbook checklist that captures exact workflow dispatch and verification order.
 
 Exit criteria:
 
 - `make release-preflight` is green.
-- TestPyPI install verification command exists and is documented.
-- Checklist is ready for first `lkscaler-core` and `livekit-lkscaler` TestPyPI publishes.
+- TestPyPI publish and install gate run in a single workflow for both packages.
+- PyPI publish runs only after TestPyPI gate success.
+- Checklist is ready for first staged (`testpypi` then `both`) production run.
 
 ## 11. Risks and Mitigations
 
@@ -310,7 +312,7 @@ Exit criteria:
 
 ## 12. Immediate Next Tasks
 
-1. Execute first workflow_dispatch publish to TestPyPI for `lkscaler-core`.
-2. Validate install from TestPyPI in a clean environment.
-3. Repeat workflow_dispatch publish to TestPyPI for `livekit-lkscaler`.
-4. Capture release checklist outcomes in docs/usage/release.md.
+1. Execute workflow_dispatch publish with `environment=testpypi` for both packages.
+2. Verify TestPyPI install gate succeeds in workflow.
+3. Execute workflow_dispatch publish with `environment=both` when ready.
+4. Capture staged publish outcomes in docs/usage/release.md.

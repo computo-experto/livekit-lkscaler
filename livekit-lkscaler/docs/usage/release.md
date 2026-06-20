@@ -1,23 +1,21 @@
 # Release Guide
 
-This guide covers package release flow for lkscaler-core and livekit-lkscaler.
+This guide covers coordinated release flow for lkscaler-core and livekit-lkscaler.
 
 ## Release triggers
 
-- Manual: run the Publish workflow via workflow_dispatch and choose package plus target.
-- Tag-based: push a tag and let workflow infer package automatically:
-  - lkscaler-core-vX.Y.Z
-  - livekit-lkscaler-vX.Y.Z
-
-Tag-based releases default to staged publish (TestPyPI then PyPI).
+- Manual: run the Publish workflow via workflow_dispatch and choose target (`testpypi` or `both`).
+- Tag-based: push `release-vX.Y.Z` to run staged publish for both packages.
 
 ## Workflow behavior
 
-1. Build selected package with uv.
+1. Build both packages with uv.
 2. Run twine metadata checks.
-3. Smoke-install produced wheel.
+3. Smoke-install both produced wheels.
 4. Upload dist artifacts.
-5. Publish to TestPyPI and/or PyPI via trusted publishing.
+5. Publish both packages to TestPyPI via trusted publishing.
+6. Run gate by installing both packages from TestPyPI in a clean environment.
+7. If target is `both`, publish both packages to PyPI.
 
 ## Local preflight
 
@@ -44,21 +42,17 @@ make release-preflight
 
 2. Trigger workflow_dispatch (GitHub UI):
   - workflow: `Publish`
-  - package: `lkscaler-core`
   - environment: `testpypi`
 
-3. Validate TestPyPI install:
+3. Confirm workflow gate passes:
+  - both packages publish to TestPyPI.
+  - TestPyPI install gate job succeeds.
+
+4. Trigger workflow_dispatch again with `environment=both` when ready for production publish.
+
+5. Optional local verification against TestPyPI:
 
 ```bash
 make verify-testpypi-install PACKAGE=lkscaler-core VERSION=<version>
-```
-
-4. Repeat for adapter package:
-  - package: `livekit-lkscaler`
-  - environment: `testpypi`
-
-```bash
 make verify-testpypi-install PACKAGE=livekit-lkscaler VERSION=<version>
 ```
-
-5. After both succeed on TestPyPI, run publish workflow for `pypi` or `both`.
