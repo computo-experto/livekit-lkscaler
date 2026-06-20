@@ -1,4 +1,4 @@
-.PHONY: format lint-check lint-fix typecheck test test-unit test-integration test-e2e test-coverage all-checks milestone-gate release-verify release-preflight verify-testpypi-install
+.PHONY: format lint-check lint-fix typecheck test test-unit test-integration test-e2e test-coverage test-proof all-checks milestone-gate proof-gate release-verify release-preflight verify-testpypi-install
 
 COVERAGE_MIN ?= 90
 
@@ -29,9 +29,14 @@ test-coverage:
 test-e2e:
 	scripts/run_e2e.sh
 
+test-proof:
+	bash scripts/run_proof_gate.sh
+
 all-checks: lint-check typecheck test
 
 milestone-gate: format lint-check typecheck test test-coverage test-e2e
+
+proof-gate: milestone-gate test-proof
 
 release-verify:
 	bash scripts/release_verify.sh

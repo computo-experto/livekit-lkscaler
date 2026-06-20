@@ -1,7 +1,7 @@
 # LiveKit LKScaler Implementation Plan
 
 Date: 2026-06-19
-Status: Milestones 1-7 completed, Milestone 8 in progress
+Status: Milestones 1-8 completed, Milestone 9 in progress
 Related design spec: ../specs/2026-06-19-livekit-binpack-scaler-design.md
 
 ## 1. Objectives
@@ -301,6 +301,23 @@ Exit criteria:
 - PyPI publish runs only after TestPyPI gate success.
 - Checklist is ready for first staged (`testpypi` then `both`) production run.
 
+### Milestone 9: Real-World Integration Proof Gate
+
+Deliverables:
+
+- Production-like integration scenario matrix: steady load, burst load, assignment failures, ZooKeeper reconnect, and parent/job restart behavior.
+- Long-running E2E soak scenario validating reservation-to-room transitions and cleanup over repeated churn.
+- Automated artifact assertions for occupancy bounds, reservation cleanup latency, and bin-pack trend.
+- Release-blocking proof gate command/workflow that must pass before PyPI publish.
+- Release runbook update defining PyPI readiness by Milestone 9 proof success.
+
+Exit criteria:
+
+- Real job-process room node behavior is validated end-to-end with repeated runs.
+- Bin-pack trend is observed consistently under homogeneous pods (within expected tie/race variance).
+- Per-pod occupancy remains bounded by `N + overflow_margin` under stress/fault scenarios.
+- ZooKeeper outage fallback remains bounded and converges safely after reconnect.
+
 ## 11. Risks and Mitigations
 
 - Slow PR pipeline due to E2E:
@@ -312,7 +329,7 @@ Exit criteria:
 
 ## 12. Immediate Next Tasks
 
-1. Execute workflow_dispatch publish with `environment=testpypi` for both packages.
-2. Verify TestPyPI install gate succeeds in workflow.
-3. Execute workflow_dispatch publish with `environment=both` when ready.
-4. Capture staged publish outcomes in docs/usage/release.md.
+1. Define Milestone 9 scenario matrix and pass thresholds aligned to acceptance criteria.
+2. Implement one canonical soak path combining burst dispatch + assignment failure + reconnect cycle.
+3. Add machine-checked assertions from E2E artifacts for occupancy bound, cleanup latency, and pack trend.
+4. Add a proof gate command/workflow that blocks PyPI publish until Milestone 9 passes.

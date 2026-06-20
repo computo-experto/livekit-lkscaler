@@ -32,6 +32,7 @@ minversion = "8.0"
 addopts = "-ra"
 markers = [
   "e2e: tests that require the docker-compose E2E stack",
+  "proof: tests that enforce Milestone 9 proof-gate assertions",
 ]
 testpaths = [
   "packages/lkscaler-core/tests",

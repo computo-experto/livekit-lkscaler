@@ -43,6 +43,7 @@ make release-verify
 - `docs/usage/integration.md`
 - `docs/usage/testing.md`
 - `docs/usage/release.md`
+- `docs/usage/proof-gate.md`
 
 ## Publishing
 

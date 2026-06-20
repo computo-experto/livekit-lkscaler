@@ -58,3 +58,8 @@ make release-preflight
 make verify-testpypi-install PACKAGE=lkscaler-core VERSION=<version>
 make verify-testpypi-install PACKAGE=livekit-lkscaler VERSION=<version>
 ```
+
+## Current release policy
+
+- TestPyPI publishing flow is validated and may be used for release rehearsal.
+- PyPI publish is intentionally deferred until Milestone 9 (real-world integration proof gate) is complete.
