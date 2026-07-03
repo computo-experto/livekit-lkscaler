@@ -23,6 +23,20 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.22.17
+
+      - name: Install kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.11.1/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Install envsubst
+        run: sudo apt-get update && sudo apt-get install -y gettext-base
+
       - name: Sync workspace
         run: uv sync --all-packages --group dev
 
@@ -43,6 +57,9 @@ jobs:
 
       - name: E2E tests
         run: make test-e2e
+
+      - name: KEDA kind E2E tests
+        run: make test-keda-e2e
 
       - name: Upload E2E artifacts on failure
         if: failure()

@@ -18,13 +18,13 @@ test:
 	uv run pytest
 
 test-unit:
-	uv run pytest packages/lkscaler-core/tests/unit packages/lkscaler-livekit/tests/unit
+	uv run pytest packages/lkscaler-core/tests/unit packages/lkscaler-livekit/tests/unit packages/lkscaler-keda/tests/unit
 
 test-integration:
-	uv run pytest packages/lkscaler-core/tests/integration packages/lkscaler-livekit/tests/integration
+	uv run pytest packages/lkscaler-core/tests/integration packages/lkscaler-livekit/tests/integration packages/lkscaler-keda/tests/integration
 
 test-coverage:
-	uv run pytest packages/lkscaler-core/tests/unit packages/lkscaler-core/tests/integration packages/lkscaler-livekit/tests/unit packages/lkscaler-livekit/tests/integration --cov=lkscaler_core --cov=lkscaler_livekit --cov-report=term-missing --cov-fail-under=$(COVERAGE_MIN)
+	uv run pytest packages/lkscaler-core/tests/unit packages/lkscaler-core/tests/integration packages/lkscaler-livekit/tests/unit packages/lkscaler-livekit/tests/integration packages/lkscaler-keda/tests/unit packages/lkscaler-keda/tests/integration --cov=lkscaler_core --cov=lkscaler_livekit --cov=lkscaler_keda --cov-report=term-missing --cov-fail-under=$(COVERAGE_MIN)
 
 test-e2e:
 	scripts/run_e2e.sh
@@ -37,7 +37,7 @@ test-proof:
 
 all-checks: lint-check typecheck test
 
-milestone-gate: format lint-check typecheck test test-coverage test-e2e
+milestone-gate: format lint-check typecheck test test-coverage test-e2e test-keda-e2e
 
 proof-gate: milestone-gate test-proof
 

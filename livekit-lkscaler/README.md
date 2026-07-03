@@ -6,6 +6,7 @@ Monorepo for LiveKit LKScaler libraries and validation suites.
 
 - `packages/lkscaler-core`: core bin-packing and reservation lifecycle logic.
 - `packages/lkscaler-livekit`: LiveKit Agent SDK hooks built on top of core.
+- `packages/lkscaler-keda`: KEDA autoscaler policy, scaler, manifests, and Kubernetes reconciliation helpers.
 - `e2e`: Docker Compose stack and end-to-end tests.
 - `scripts`: helper scripts for integration, e2e, and release verification.
 
@@ -14,6 +15,7 @@ Monorepo for LiveKit LKScaler libraries and validation suites.
 - Python 3.12+
 - `uv`
 - Docker (for E2E)
+- `kind`, `kubectl`, and `envsubst` (for KEDA kind E2E)
 
 ## Local setup
 
@@ -27,6 +29,12 @@ Run per milestone:
 
 ```bash
 make milestone-gate
+```
+
+Run the KEDA autoscaling harness only:
+
+```bash
+make test-keda-e2e
 ```
 
 Run release smoke verification locally:
@@ -45,6 +53,15 @@ make release-verify
 - `docs/usage/testing.md`
 - `docs/usage/release.md`
 - `docs/usage/proof-gate.md`
+
+## KEDA autoscaling summary
+
+The repository now includes a KEDA integration package that:
+
+- computes cluster-wide free-slot policy decisions
+- exposes an external scaler interface for KEDA
+- biases scale-down toward idle pods using pod deletion cost
+- validates the scaling path in kind with a lightweight agent simulator
 
 ## Publishing
 

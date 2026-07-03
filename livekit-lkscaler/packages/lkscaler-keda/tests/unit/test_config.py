@@ -19,17 +19,19 @@ def test_keda_autoscaler_config_defaults() -> None:
 
 def test_keda_autoscaler_config_requires_required_fields() -> None:
     with pytest.raises(ValidationError):
-        KedaAutoscalerConfig(namespace="livekit", deployment_name="agents")
+        KedaAutoscalerConfig.model_validate({"namespace": "livekit", "deployment_name": "agents"})
 
 
 def test_keda_autoscaler_config_rejects_extra_field() -> None:
     with pytest.raises(ValidationError):
-        KedaAutoscalerConfig(
-            namespace="livekit",
-            deployment_name="agents",
-            zookeeper_hosts=["zk:2181"],
-            min_cluster_free_slots=4,
-            unknown_field=True,
+        KedaAutoscalerConfig.model_validate(
+            {
+                "namespace": "livekit",
+                "deployment_name": "agents",
+                "zookeeper_hosts": ["zk:2181"],
+                "min_cluster_free_slots": 4,
+                "unknown_field": True,
+            }
         )
 
 
@@ -47,7 +49,7 @@ def test_keda_autoscaler_config_rejects_invalid_numeric_values(
     field_name: str,
     field_value: int,
 ) -> None:
-    kwargs = {
+    kwargs: dict[str, object] = {
         "namespace": "livekit",
         "deployment_name": "agents",
         "zookeeper_hosts": ["zk:2181"],
@@ -56,7 +58,7 @@ def test_keda_autoscaler_config_rejects_invalid_numeric_values(
     kwargs[field_name] = field_value
 
     with pytest.raises(ValidationError):
-        KedaAutoscalerConfig(**kwargs)
+        KedaAutoscalerConfig.model_validate(kwargs)
 
 
 @pytest.mark.parametrize("hosts", [[], [""], [" "]])
