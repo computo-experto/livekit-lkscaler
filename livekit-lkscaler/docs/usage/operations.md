@@ -38,6 +38,12 @@ So a room offered to a worker which then declines it (the admission handler reje
 terminated) waits for that worker rather than moving to an idle peer. Plan headroom for bursts and treat
 scale-up latency as a capacity budget; per-room redistribution during a burst is not something to rely on.
 
+Express that headroom as a number of slots. A fixed slot count is the simplest policy to reason about and
+the one most fleets want: `min_free_slots = 8` means "keep eight rooms' worth of admission capacity ready",
+however many workers that takes. A percentage of configured capacity tracks growth automatically, but it
+moves the target every time the fleet resizes, which is harder to explain mid-incident. Set the number and
+let the scale policy hold it.
+
 ## Local runbooks
 
 On E2E failure, inspect:
