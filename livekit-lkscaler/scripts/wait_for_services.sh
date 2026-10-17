@@ -4,13 +4,18 @@ set -euo pipefail
 COMPOSE_FILE="e2e/compose.yaml"
 MAX_SECONDS="${1:-120}"
 START_TS="$(date +%s)"
+# A service that crashed on start still leaves the stack "healthy" by the healthcheck rule, so the
+# number of running containers is compared with the containers the active profiles actually created.
+MIN_SERVICES=6
 
 echo "Waiting for E2E services to become healthy (timeout ${MAX_SECONDS}s)..."
 
 while true; do
 	if docker compose -f "${COMPOSE_FILE}" ps --format json >/tmp/lkscaler_e2e_ps.json 2>/dev/null; then
-		if grep -q '"Health":"healthy"' /tmp/lkscaler_e2e_ps.json && grep -q '"Service":"livekit"' /tmp/lkscaler_e2e_ps.json; then
-			echo "E2E stack is healthy."
+		created_services="$(docker compose -f "${COMPOSE_FILE}" ps --all --services 2>/dev/null | wc -l)"
+		running_services="$(docker compose -f "${COMPOSE_FILE}" ps --services --status running 2>/dev/null | wc -l)"
+		if grep -q '"Health":"healthy"' /tmp/lkscaler_e2e_ps.json && grep -q '"Service":"livekit"' /tmp/lkscaler_e2e_ps.json && [ "${running_services}" -eq "${created_services}" ] && [ "${running_services}" -ge "${MIN_SERVICES}" ]; then
+			echo "E2E stack is healthy with ${running_services} running services."
 			rm -f /tmp/lkscaler_e2e_ps.json
 			exit 0
 		fi

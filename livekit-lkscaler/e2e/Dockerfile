@@ -13,6 +13,7 @@ COPY . .
 # Install uv and dependencies
 RUN pip install --no-cache-dir uv
 RUN uv sync --frozen --no-dev --all-packages --directory .
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Set environment variables for test agent
 ENV LIVEKIT_URL=ws://livekit:7880

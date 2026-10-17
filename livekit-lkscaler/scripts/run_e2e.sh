@@ -13,7 +13,7 @@ cleanup() {
 
 trap cleanup EXIT
 
-docker compose -f "${COMPOSE_FILE}" up -d
+docker compose -f "${COMPOSE_FILE}" up -d --build
 scripts/wait_for_services.sh 180
 
 E2E_STACK_RUNNING=1 uv run pytest -m e2e e2e/tests/test_e2e_stack.py
