@@ -1,14 +1,20 @@
 # livekit-lkscaler
 
-Monorepo for LiveKit LKScaler libraries and validation suites.
+LiveKit agent worker hooks and placement primitives that make self-hosted Agent fleets cheaper: jobs are bin-packed onto workers that fill toward a capacity target, so idle workers appear genuinely idle and the cluster scales down sooner.
+
+No particular autoscaler is required. Use Kubernetes HPA or KEDA if you have them, or any replica manager that reacts to the `load_fnc` value; shared state comes from ZooKeeper or from any store you already run (see [Shared state](#shared-state)).
 
 ## Workspace layout
 
 - `packages/lkscaler-core`: core bin-packing and reservation lifecycle logic.
 - `packages/lkscaler-livekit`: LiveKit Agent SDK hooks built on top of core.
-- `packages/lkscaler-keda`: KEDA autoscaler policy, scaler, manifests, and Kubernetes reconciliation helpers.
+- `packages/lkscaler-keda`: optional KEDA external scaler, policy, and Kubernetes reconciliation helpers for clusters that run KEDA.
 - `e2e`: Docker Compose stack and end-to-end tests.
 - `scripts`: helper scripts for integration, e2e, and release verification.
+
+## Shared state
+
+Reservations and cluster occupancy need a store every worker can read. `InMemoryReservationStore` is what ships today and it is single-process only, so a real multi-worker fleet needs an implementation of the `ReservationStore` contract: ZooKeeper is the designed backend (a kazoo-backed store is not written yet), but etcd, Redis, or an existing service of yours work equally well.
 
 ## Requirements
 
@@ -65,5 +71,16 @@ The repository now includes a KEDA integration package that:
 
 ## Publishing
 
-Publishing is handled by `.github/workflows/publish.yml` via OIDC trusted publishing.
-Choose package (`lkscaler-core` or `livekit-lkscaler`) and target (`testpypi`, `pypi`, or `both`) from workflow dispatch.
+Publishing is handled by `.github/workflows/publish.yml` via OIDC trusted publishing. One run publishes
+both `lkscaler-core` and `livekit-lkscaler` together: build both, twine check, smoke-install both wheels in
+the runner, publish both to TestPyPI, gate on installing both from TestPyPI, then publish both to PyPI when
+the target is `both`.
+
+Triggers:
+
+- `workflow_dispatch` with target `testpypi` (rehearsal) or `both` (TestPyPI, then PyPI).
+- Pushing a `release-vX.Y.Z` tag, which runs the staged flow for both packages and requires the tag to
+  match the package versions.
+
+Keep both package versions identical before releasing; the workflow and `make release-verify` reject a
+mismatch.

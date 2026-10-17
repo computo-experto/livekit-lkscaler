@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "livekit-lkscaler"
-version = "0.1.0"
-description = "LiveKit Agent SDK integration for LKScaler"
+version = "0.2.0"
+description = "LiveKit agent hooks that bin-pack jobs so self-hosted fleets scale down sooner"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
@@ -28,9 +28,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jmedina/lkscaler"
-Repository = "https://github.com/jmedina/lkscaler"
-Issues = "https://github.com/jmedina/lkscaler/issues"
+Documentation = "https://github.com/computo-experto/livekit-lkscaler/tree/main/livekit-lkscaler/docs/usage"
+Homepage = "https://github.com/computo-experto/livekit-lkscaler"
+Repository = "https://github.com/computo-experto/livekit-lkscaler"
+Issues = "https://github.com/computo-experto/livekit-lkscaler/issues"
 
 [tool.uv.sources]
 lkscaler-core = { workspace = true }

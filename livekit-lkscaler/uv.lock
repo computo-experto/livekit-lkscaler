@@ -1021,7 +1021,7 @@ wheels = [
 
 [[package]]
 name = "livekit-lkscaler"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/lkscaler-livekit" }
 dependencies = [
     { name = "livekit-agents" },
@@ -1071,7 +1071,7 @@ wheels = [
 
 [[package]]
 name = "lkscaler-core"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/lkscaler-core" }
 dependencies = [
     { name = "kazoo" },
