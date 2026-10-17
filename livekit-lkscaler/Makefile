@@ -1,4 +1,4 @@
-.PHONY: format lint-check lint-fix typecheck test test-unit test-integration test-integration-zookeeper test-integration-redis test-e2e test-e2e-backends test-keda-e2e test-coverage test-proof all-checks milestone-gate proof-gate release-verify release-preflight verify-testpypi-install
+.PHONY: format lint-check lint-fix typecheck test test-unit test-integration test-integration-zookeeper test-integration-redis test-e2e test-e2e-backends test-real-agent-wiring test-keda-e2e test-coverage test-proof all-checks milestone-gate proof-gate release-verify release-preflight verify-testpypi-install
 
 COVERAGE_MIN ?= 90
 
@@ -37,6 +37,9 @@ test-e2e:
 
 test-e2e-backends:
 	bash scripts/run_e2e_backends.sh
+
+test-real-agent-wiring:
+	uv run pytest e2e/tests/test_real_agent_wiring.py
 
 test-keda-e2e:
 	scripts/run_keda_e2e.sh

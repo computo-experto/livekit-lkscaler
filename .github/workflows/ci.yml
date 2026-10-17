@@ -49,6 +49,9 @@ jobs:
       - name: Unit tests
         run: make test-unit
 
+      - name: Real-agent wiring tests
+        run: make test-real-agent-wiring
+
       - name: Integration tests
         run: make test-integration
 
