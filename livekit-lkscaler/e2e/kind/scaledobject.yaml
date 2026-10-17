@@ -1,0 +1,29 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: livekit-agents-keda
+  namespace: livekit-system
+spec:
+  scaleTargetRef:
+    name: livekit-agents
+  minReplicaCount: 1
+  maxReplicaCount: 6
+  pollingInterval: 5
+  cooldownPeriod: 30
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          # The dwell the scaler used to hand-roll is now Kubernetes' own stabilization window.
+          stabilizationWindowSeconds: 30
+  triggers:
+    - type: external
+      metadata:
+        scalerAddress: lkscaler-keda.livekit-system.svc.cluster.local:9090
+        namespace: livekit-lkscaler
+        backend: zookeeper
+        zookeeperHosts: zk:2181
+        # Headroom as a fixed number of slots, the policy form operators hold.
+        minFreeSlots: "2"
+        roomTargetN: "2"
+        overflowMargin: "1"
