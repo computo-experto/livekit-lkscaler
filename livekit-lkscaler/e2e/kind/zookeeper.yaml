@@ -13,6 +13,8 @@ spec:
       labels:
         app: zk
     spec:
+      # Kubernetes service links would inject LIVEKIT_PORT=tcp://... and break livekit-server's own flag.
+      enableServiceLinks: false
       containers:
         - name: zk
           image: zookeeper:3.9

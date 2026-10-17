@@ -16,6 +16,8 @@ spec:
       labels:
         app: livekit-agents
     spec:
+      # Kubernetes service links would inject LIVEKIT_PORT=tcp://... and break livekit-server's own flag.
+      enableServiceLinks: false
       containers:
         - name: agent
           image: lkscaler-e2e-real-agent:local

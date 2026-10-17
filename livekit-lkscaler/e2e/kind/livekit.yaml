@@ -13,6 +13,8 @@ spec:
       labels:
         app: livekit
     spec:
+      # Kubernetes service links would inject LIVEKIT_PORT=tcp://... and break livekit-server's own flag.
+      enableServiceLinks: false
       containers:
         - name: livekit
           image: livekit/livekit-server:latest

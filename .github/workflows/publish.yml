@@ -171,9 +171,54 @@ jobs:
           name: dist-all
           path: livekit-lkscaler/dist/all
 
-  publish-testpypi:
+  proof-gate:
     needs: [build-and-verify]
-    if: ${{ needs.build-and-verify.outputs.publish_target == 'testpypi' || needs.build-and-verify.outputs.publish_target == 'both' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.22.17
+
+      - name: Install kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.11.1/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Sync workspace
+        working-directory: livekit-lkscaler
+        run: uv sync --all-packages --group dev
+
+      # The documented gate is the gate that runs: unit, integration, compose E2E, proof assertions and the
+      # KEDA scale up/down proof in kind. Publishing is blocked when any of it fails.
+      - name: Proof gate
+        working-directory: livekit-lkscaler
+        run: make proof-gate
+
+      - name: Upload gate artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-gate-artifacts
+          path: livekit-lkscaler/e2e/artifacts
+          if-no-files-found: ignore
+
+  publish-testpypi:
+    needs: [build-and-verify, proof-gate]
+    if: ${{ needs.proof-gate.result == 'success' && (needs.build-and-verify.outputs.publish_target == 'testpypi' || needs.build-and-verify.outputs.publish_target == 'both') }}
     runs-on: ubuntu-latest
     environment: testpypi
     permissions:
