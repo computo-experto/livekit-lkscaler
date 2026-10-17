@@ -11,7 +11,9 @@ The gate targets these scenarios. Scenarios 1-3 are asserted today by the compos
    provisions, not on the placement path. See `operations.md` for the measured behaviour and the
    recommendation to keep free capacity sized to the burst pattern.
 3. Assignment failure cleanup.
-4. ZooKeeper disconnect and reconnect convergence.
+4. Backend outage and reconnect is **out of scope by decision**: ZooKeeper runs as an ensemble and Redis
+   as a central store, so a total outage is not a failure mode to engineer against. The behaviour is
+   KEDA's `fallback` block plus the store TTL for stale pods, documented in the scaler's README.
 5. Parent/job restart behavior for reservation-room reconciliation.
 
 ## Gate command

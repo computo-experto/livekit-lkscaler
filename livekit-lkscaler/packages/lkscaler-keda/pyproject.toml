@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lkscaler-keda"
+version = "0.1.0"
+description = "KEDA external scaler that keeps a minimum number of free LKScaler slots available"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [
+  { name = "LKScaler Maintainers" },
+]
+keywords = ["livekit", "keda", "autoscaling", "binpack"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: System :: Distributed Computing",
+]
+dependencies = [
+  "lkscaler-core>=0.2.0",
+  "grpcio>=1.60.0",
+  "protobuf>=4.25.0",
+]
+
+[project.optional-dependencies]
+zookeeper = ["kazoo>=2.11.0"]
+redis = ["redis>=5.0.0"]
+
+[project.scripts]
+lkscaler-keda-scaler = "lkscaler_keda.scaler:main"
+
+[project.urls]
+Documentation = "https://github.com/computo-experto/livekit-lkscaler/tree/main/livekit-lkscaler/docs/usage"
+Homepage = "https://github.com/computo-experto/livekit-lkscaler"
+Repository = "https://github.com/computo-experto/livekit-lkscaler"
+Issues = "https://github.com/computo-experto/livekit-lkscaler/issues"
+
+[tool.uv.sources]
+lkscaler-core = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lkscaler_keda"]
