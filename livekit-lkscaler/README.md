@@ -8,20 +8,18 @@ No particular autoscaler is required. Use Kubernetes HPA or KEDA if you have the
 
 - `packages/lkscaler-core`: core bin-packing and reservation lifecycle logic.
 - `packages/lkscaler-livekit`: LiveKit Agent SDK hooks built on top of core.
-- `packages/lkscaler-keda`: optional KEDA external scaler, policy, and Kubernetes reconciliation helpers for clusters that run KEDA.
 - `e2e`: Docker Compose stack and end-to-end tests.
 - `scripts`: helper scripts for integration, e2e, and release verification.
 
 ## Shared state
 
-Reservations and cluster occupancy need a store every worker can read. What ships in the base install is `InMemoryReservationStore`, which is single-process and meant for tests; a real fleet uses a shared backend. ZooKeeper (`pip install "lkscaler-core[zookeeper]"`) and Redis (`pip install "lkscaler-core[redis]"`) are both implemented and integration-tested against real servers. Anything you already run works too, as long as it keeps the `ReservationStore` and `ClusterStateStore` contracts. KEDA is a scaler, not a store: it reads whichever backend you choose. See [Coordination backends](docs/usage/coordination.md).
+Reservations and cluster occupancy need a store every worker can read. What ships in the base install is `InMemoryReservationStore`, which is single-process and meant for tests; a real fleet uses a shared backend. ZooKeeper (`pip install "lkscaler-core[zookeeper]"`) and Redis (`pip install "lkscaler-core[redis]"`) are both implemented and integration-tested against real servers. Anything you already run works too, as long as it keeps the `ReservationStore` and `ClusterStateStore` contracts. See [Coordination backends](docs/usage/coordination.md).
 
 ## Requirements
 
 - Python 3.12+
 - `uv`
 - Docker (for E2E)
-- `kind`, `kubectl`, and `envsubst` (for KEDA kind E2E)
 
 ## Local setup
 
@@ -35,12 +33,6 @@ Run per milestone:
 
 ```bash
 make milestone-gate
-```
-
-Run the KEDA autoscaling harness only:
-
-```bash
-make test-keda-e2e
 ```
 
 Run release smoke verification locally:
@@ -59,15 +51,6 @@ make release-verify
 - `docs/usage/testing.md`
 - `docs/usage/release.md`
 - `docs/usage/proof-gate.md`
-
-## KEDA autoscaling summary
-
-The repository now includes a KEDA integration package that:
-
-- computes cluster-wide free-slot policy decisions
-- exposes an external scaler interface for KEDA
-- biases scale-down toward idle pods using pod deletion cost
-- validates the scaling path in kind with a lightweight agent simulator
 
 ## License
 

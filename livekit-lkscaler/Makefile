@@ -1,4 +1,4 @@
-.PHONY: format lint-check lint-fix typecheck test test-unit test-integration test-integration-zookeeper test-integration-redis test-e2e test-e2e-backends test-real-agent-wiring test-keda-e2e test-coverage test-proof all-checks milestone-gate proof-gate release-verify release-preflight verify-testpypi-install
+.PHONY: format lint-check lint-fix typecheck test test-unit test-integration test-integration-zookeeper test-integration-redis test-e2e test-e2e-backends test-real-agent-wiring test-coverage test-proof all-checks milestone-gate proof-gate release-verify release-preflight verify-testpypi-install
 
 COVERAGE_MIN ?= 90
 
@@ -18,10 +18,10 @@ test:
 	uv run pytest
 
 test-unit:
-	uv run pytest packages/lkscaler-core/tests/unit packages/lkscaler-livekit/tests/unit packages/lkscaler-keda/tests/unit
+	uv run pytest packages/lkscaler-core/tests/unit packages/lkscaler-livekit/tests/unit
 
 test-integration:
-	uv run pytest packages/lkscaler-core/tests/integration packages/lkscaler-livekit/tests/integration packages/lkscaler-keda/tests/integration
+	uv run pytest packages/lkscaler-core/tests/integration packages/lkscaler-livekit/tests/integration
 
 test-integration-zookeeper:
 	bash scripts/run_zookeeper_integration.sh
@@ -30,7 +30,7 @@ test-integration-redis:
 	bash scripts/run_redis_integration.sh
 
 test-coverage:
-	uv run pytest packages/lkscaler-core/tests/unit packages/lkscaler-core/tests/integration packages/lkscaler-livekit/tests/unit packages/lkscaler-livekit/tests/integration packages/lkscaler-keda/tests/unit packages/lkscaler-keda/tests/integration --cov=lkscaler_core --cov=lkscaler_livekit --cov=lkscaler_keda --cov-report=term-missing --cov-fail-under=$(COVERAGE_MIN)
+	uv run pytest packages/lkscaler-core/tests/unit packages/lkscaler-core/tests/integration packages/lkscaler-livekit/tests/unit packages/lkscaler-livekit/tests/integration --cov=lkscaler_core --cov=lkscaler_livekit --cov-report=term-missing --cov-fail-under=$(COVERAGE_MIN)
 
 test-e2e:
 	scripts/run_e2e.sh
@@ -41,15 +41,12 @@ test-e2e-backends:
 test-real-agent-wiring:
 	uv run pytest e2e/tests/test_real_agent_wiring.py
 
-test-keda-e2e:
-	scripts/run_keda_e2e.sh
-
 test-proof:
 	bash scripts/run_proof_gate.sh
 
 all-checks: lint-check typecheck test
 
-milestone-gate: format lint-check typecheck test test-coverage test-e2e test-keda-e2e
+milestone-gate: format lint-check typecheck test test-coverage test-e2e
 
 proof-gate: milestone-gate test-proof
 

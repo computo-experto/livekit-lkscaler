@@ -7,7 +7,6 @@ This project uses layered tests.
 - Unit tests: deterministic logic in core and livekit adapter.
 - Integration tests: package-level integration behavior.
 - E2E tests: compose-backed stack checks in `e2e/tests`.
-- KEDA E2E tests: kind-based autoscaling harness in `e2e/tests/test_keda_e2e.py`.
 
 ## Common commands
 
@@ -16,7 +15,6 @@ make test-unit
 make test-integration
 make test-coverage
 make test-e2e
-make test-keda-e2e
 ```
 
 Run all local quality gates for milestones:
@@ -166,29 +164,6 @@ make proof-gate
 scripts/run_e2e.sh
 ```
 
-### KEDA kind harness
-
-The KEDA path uses a real kind cluster, installs KEDA, deploys `livekit-server`, and runs a lightweight long-running agent Deployment so replica scaling can be exercised without depending on application-specific agent logic.
-
-#### Run the KEDA harness
-```bash
-scripts/run_keda_e2e.sh
-```
-
-#### What it validates
-
-- KEDA operator installation succeeds in kind.
-- `ScaledObject` and RBAC templates render and apply.
-- LiveKit server and the agent simulator Deployment become healthy.
-- Replica count can move from 2 -> 3 -> 2 while policy conditions are asserted in code.
-
-#### Prerequisites
-
-- Docker
-- kind
-- kubectl
-- envsubst
-
 #### Manual stack management
 ```bash
 # Start compose stack
@@ -209,8 +184,6 @@ docker compose -f e2e/compose.yaml down
 ### Notes
 
 - E2E tests requiring a running stack are gated by `E2E_STACK_RUNNING`.
-- KEDA kind tests are gated by `KEDA_E2E_RUNNING` and are launched by `scripts/run_keda_e2e.sh`.
 - Compose diagnostics are written to `e2e/artifacts/` on failures.
-- kind/KEDA diagnostics are also written to `e2e/artifacts/` on failures.
 - Coverage gate is enforced on unit+integration tests with `COVERAGE_MIN` (default `90`).
 - Bin-pack tests use 0.5-1.0s pauses between room creation to allow time for load_fnc evaluation and winner/loser decisions to stabilize.

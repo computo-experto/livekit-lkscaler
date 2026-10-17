@@ -28,11 +28,9 @@ The in-memory store exists for tests and single-worker experiments. It coordinat
 nothing across processes, so two workers using it can both believe they own the same
 slot. Use a real backend for a real fleet.
 
-KEDA is not a coordination backend. It is a scaler: it reacts to metrics and changes
-replica counts, and it keeps no shared state. The optional integration in
-`lkscaler-keda` reads cluster free slots from whichever backend above you run and
-adjusts replicas accordingly, so clusters without KEDA use the same placement path and
-just scale by another means (HPA, or LiveKit's own scaling).
+Scaling is a separate concern from coordination. Whichever replica manager you run — Kubernetes HPA,
+KEDA, or LiveKit's own scaling — reacts to the `load_fnc` value each worker reports and keeps no shared
+state of its own; placement always reads the backend above, whichever one you chose.
 
 ## ZooKeeper
 

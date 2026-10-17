@@ -2,7 +2,7 @@
 
 LiveKit agent worker hooks that make a self-hosted Agent fleet cheaper to run: jobs are bin-packed so workers fill toward a room target before spillover, which leaves the remaining workers genuinely idle so the cluster can scale down sooner. Slot reservations keep two workers from accepting the same job into the same last free slot.
 
-The package adapts [`lkscaler-core`](https://pypi.org/project/lkscaler-core/) to the two callbacks a LiveKit agent worker needs, and adds no placement logic of its own. It does not require KEDA: the `load_fnc` value it produces is what any replica manager — Kubernetes HPA, KEDA, or LiveKit's own scaling — reacts to, and the KEDA external scaler in `lkscaler-keda` is an optional extra for clusters that run KEDA.
+The package adapts [`lkscaler-core`](https://pypi.org/project/lkscaler-core/) to the two callbacks a LiveKit agent worker needs, and adds no placement logic of its own. It requires no particular autoscaler: the `load_fnc` value it produces is what any replica manager — Kubernetes HPA, KEDA, or LiveKit's own scaling — reacts to.
 
 Reservations and cluster occupancy come from whatever backend you supply: an in-memory store ships for tests and single-worker use, and ZooKeeper and Redis backends are available through `lkscaler-core[zookeeper]` and `lkscaler-core[redis]`. See [Coordination backends](https://github.com/computo-experto/livekit-lkscaler/blob/main/livekit-lkscaler/docs/usage/coordination.md).
 
@@ -123,7 +123,6 @@ The `tracker` is the part you own. It has to answer two questions:
 ## Links
 
 - Placement primitives and coordination contract: [`lkscaler-core`](https://pypi.org/project/lkscaler-core/)
-- KEDA autoscaling companion: `lkscaler-keda` (same repository)
 - License: Apache-2.0 (`LICENSE` ships with every release)
 - Source, design specs, and usage guides: <https://github.com/computo-experto/livekit-lkscaler>
 - Changelog: <https://github.com/computo-experto/livekit-lkscaler/blob/main/livekit-lkscaler/CHANGELOG.md>

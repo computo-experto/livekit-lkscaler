@@ -41,6 +41,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   metadata (`license = "Apache-2.0"`, `license-files`), the deprecated MIT classifier is gone, and both
   `LICENSE` and `NOTICE` ship in the wheels and sdists.
 
+### Removed
+
+- The `lkscaler-keda` package and its KEDA kind E2E harness are gone, along with the `make test-keda-e2e`
+  target, the CI step that ran it, and the `kind`/`kubectl`/`envsubst` installs that existed only to support
+  it. Nothing in the repository served the package's external-scaler interface over gRPC, its `ScaledObject`
+  pointed at a Service that no workload provided, and the kind suite asserted a manual `kubectl scale`
+  rather than an autoscaling integration. The `load_fnc` value a worker reports remains the signal any
+  replica manager (Kubernetes HPA, KEDA, or LiveKit's own scaling) reacts to.
+- The unused `kubernetes` e2e dependency, which only the removed KEDA test environment needed.
+
 ### Fixed
 
 - The E2E agent image built an empty virtualenv: `uv sync --frozen --no-dev` syncs only the workspace root

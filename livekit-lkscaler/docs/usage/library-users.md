@@ -12,7 +12,7 @@ Before integrating the library, make sure you have:
 - A unique `pod_id` for each worker instance.
 - A cluster namespace shared by the workers that should participate in the same scaling pool.
 
-No autoscaler is required: the placement path only needs the two hooks below, and the `load_fnc` value is what a replica manager reacts to. KEDA is optional and lives in a separate package.
+No autoscaler is required: the placement path only needs the two hooks below, and the `load_fnc` value is what a replica manager reacts to.
 
 Shared reservation and cluster-state coordination run through the store you provide. If that store is unavailable, the library itself applies no fallback; your tracker decides what a worker should report and accept.
 
