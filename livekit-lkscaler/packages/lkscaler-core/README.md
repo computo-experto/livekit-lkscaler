@@ -2,7 +2,7 @@
 
 Placement and reservation primitives that make a self-hosted LiveKit Agents fleet cheaper to run: jobs are bin-packed onto workers that fill toward a room target before spillover, so the workers left idle can be scaled down sooner instead of being paid for.
 
-The package is SDK-agnostic. It contains no LiveKit dependency, no network I/O, and no process-global state. It is the placement math and reservation lifecycle that the [`livekit-lkscaler`](https://pypi.org/project/livekit-lkscaler/) adapter wires into a LiveKit worker, and it needs neither KEDA nor ZooKeeper to be useful: scaling is driven by the load signal it computes, and shared state is whatever `ReservationStore` you supply.
+The package is SDK-agnostic. It contains no LiveKit dependency, no network I/O, and no process-global state. It is the placement math and reservation lifecycle that the [`livekit-lkscaler`](https://pypi.org/project/livekit-lkscaler/) adapter wires into a LiveKit worker, and it needs no autoscaler and no coordination service of its own: scaling is driven by the load signal it computes, and shared state is whatever `ReservationStore` you supply.
 
 Requires Python 3.12+.
 
@@ -180,13 +180,12 @@ Any other store works too, as long as it keeps the contract:
 
 ## What this package does not do
 
-- It assumes no autoscaler. KEDA is optional and lives in a separate package.
+- It assumes no autoscaler: the load signal it computes is what a replica manager (Kubernetes HPA, KEDA, or LiveKit's own scaling) reacts to.
 - `BinpackConfig.zk_session_timeout_sec`, `BinpackConfig.sync_interval_ms`, and `BinpackConfig.fail_mode` are declarations for your coordination layer; the placement helpers do not read them.
 - The base install has no network dependency at all: kazoo arrives only with the `zookeeper` extra and redis-py only with the `redis` extra. No background threads beyond the store and cache locks, no LiveKit dependency.
 
 ## Links
 
-- KEDA autoscaling companion: `lkscaler-keda` (same repository)
 - License: Apache-2.0 (`LICENSE` ships with every release)
 - Source, design specs, and usage guides: <https://github.com/computo-experto/livekit-lkscaler>
 - Changelog: <https://github.com/computo-experto/livekit-lkscaler/blob/main/livekit-lkscaler/CHANGELOG.md>

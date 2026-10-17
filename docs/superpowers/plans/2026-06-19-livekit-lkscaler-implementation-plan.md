@@ -28,7 +28,6 @@ Related design spec: ../specs/2026-06-19-livekit-binpack-scaler-design.md
 
 ### Out of scope for this phase
 
-- KEDA autoscaler implementation.
 - Heterogeneous capacity weighting.
 - Non-self-hosted LiveKit Cloud hosted workers.
 

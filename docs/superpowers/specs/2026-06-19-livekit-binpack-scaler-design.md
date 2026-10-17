@@ -17,7 +17,6 @@ Design target:
 
 ## 2. Non-goals (v1)
 
-- KEDA implementation (deferred; this spec is library-only).
 - Heterogeneous capacity weighting.
 - Cross-region placement policy.
 
@@ -182,6 +181,5 @@ This is required because real room liveness belongs to the job process, while di
 
 ## 12. Future extension points (post-v1)
 
-- KEDA integration package(s): see the companion spec [2026-06-20-livekit-keda-autoscaler-design.md](2026-06-20-livekit-keda-autoscaler-design.md).
 - Weighted capacity for heterogeneous pods.
 - Strategy plugins beyond strict bin-pack.
