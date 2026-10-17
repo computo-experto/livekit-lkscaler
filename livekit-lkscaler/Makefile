@@ -60,7 +60,7 @@ all-checks: lint-check typecheck test ## Run lint, typecheck and tests
 
 milestone-gate: format lint-check typecheck test test-coverage test-e2e ## Run the full per-milestone gate
 
-proof-gate: milestone-gate test-proof test-keda-scale-e2e ## Run the milestone gate, the proof assertions and the KEDA scale proof
+proof-gate: milestone-gate test-proof test-real-agent-scenarios test-keda-scale-e2e ## Run the milestone gate, the real-agent scenarios, the proof assertions and the KEDA scale proof
 
 release-verify: ## Build and smoke-install both published packages
 	bash scripts/release_verify.sh

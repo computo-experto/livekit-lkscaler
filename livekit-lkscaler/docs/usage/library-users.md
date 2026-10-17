@@ -8,13 +8,32 @@ It focuses on what you need to run the library in production: prerequisites, int
 Before integrating the library, make sure you have:
 
 - A working LiveKit Agent worker application.
-- A shared store for reservations and cluster occupancy, so workers can see each other's slots. ZooKeeper is available as an optional extra (`pip install "lkscaler-core[zookeeper]"`); Redis and a Kubernetes-native backend are in progress. The base install carries an in-memory store only, which is single-process and therefore not enough for a multi-worker fleet.
+- A shared store for reservations and cluster occupancy, so workers can see each other's slots. ZooKeeper (`pip install "lkscaler-core[zookeeper]"`) and Redis (`pip install "lkscaler-core[redis]"`) are both shipped; there is no Kubernetes-native backend, and the base install carries an in-memory store only, which is single-process and therefore not enough for a multi-worker fleet.
 - A unique `pod_id` for each worker instance.
 - A cluster namespace shared by the workers that should participate in the same scaling pool.
 
 No autoscaler is required: the placement path only needs the two hooks below, and the `load_fnc` value is what a replica manager reacts to.
 
 Shared reservation and cluster-state coordination run through the store you provide. If that store is unavailable, the library itself applies no fallback; your tracker decides what a worker should report and accept.
+
+## What LKScaler implements, and what you supply
+
+LKScaler implements the placement decision and the hardening around it:
+
+- Admission and overflow safety for a job request, so a worker never exceeds `room_target_n + overflow_margin`.
+- A single placement winner: `load_fnc` reports `0.0` for exactly one worker and `1.0` for every other worker,
+  so LiveKit has no tie to resolve.
+- Reservation claims with TTL expiry, so a crashed worker's slots return to the pool.
+- Cluster occupancy contracts (`PodState`, `ClusterStateStore`) with two shipped backends, ZooKeeper and Redis.
+
+You supply the parts that depend on your deployment:
+
+- The store connection: construct `ZooKeeperStateStore` or `RedisStateStore` with your own hosts or URL and hand
+  it to the hooks.
+- The tracker that publishes your worker's `PodState` and reads the cluster at your cadence.
+- The replica manager. LKScaler exposes the load signal; whether that is KEDA, an HPA or your own controller is
+  your decision, and `lkscaler-keda` ships the KEDA external scaler if you want it.
+- The headroom policy: keep enough free capacity for your burst pattern, as measured in `operations.md`.
 
 ## Install
 

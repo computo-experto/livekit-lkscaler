@@ -8,6 +8,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- `lkscaler-keda` is part of the released product again: a KEDA external scaler that turns the placement
+  signal into a replica count, with the `external` trigger metadata documented in its README. It ships at the
+  same version as `lkscaler-core` and `livekit-lkscaler`, and the Publish workflow builds, verifies and
+  releases all three together.
+- The KEDA scale proof: a kind harness (`make test-keda-scale-e2e`) deploys ZooKeeper, a production-mode
+  LiveKit server, real workers, the scaler and a `ScaledObject`, then proves replicas rise under accepted load
+  and fall back when the pool is idle. `make proof-gate` now runs the real-agent scenario suite and this scale
+  proof, and the Publish workflow runs `make proof-gate` before publishing.
+
 - ZooKeeper coordination backend (`pip install "lkscaler-core[zookeeper]"`): atomic reservation claims,
   TTL expiry cleanup, pod occupancy, and room nodes under `/livekit-binpack/{namespace}`. Unit-tested
   against a fake node client and integration-tested against a real ensemble.

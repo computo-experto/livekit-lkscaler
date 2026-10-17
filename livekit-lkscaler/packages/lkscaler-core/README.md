@@ -181,7 +181,7 @@ Any other store works too, as long as it keeps the contract:
 ## What this package does not do
 
 - It assumes no autoscaler: the load signal it computes is what a replica manager (Kubernetes HPA, KEDA, or LiveKit's own scaling) reacts to.
-- `BinpackConfig.zk_session_timeout_sec`, `BinpackConfig.sync_interval_ms`, and `BinpackConfig.fail_mode` are declarations for your coordination layer; the placement helpers do not read them.
+- `BinpackConfig.zk_session_timeout_sec`, `BinpackConfig.sync_interval_ms`, and `BinpackConfig.fail_mode` are declarations for your coordination layer; the placement helpers do not read them. [Configuration](https://github.com/computo-experto/livekit-lkscaler/blob/main/livekit-lkscaler/docs/usage/configuration.md) splits every field into what LKScaler reads and what you supply.
 - The base install has no network dependency at all: kazoo arrives only with the `zookeeper` extra and redis-py only with the `redis` extra. No background threads beyond the store and cache locks, no LiveKit dependency.
 
 ## Links

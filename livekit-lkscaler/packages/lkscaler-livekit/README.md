@@ -103,7 +103,7 @@ The `tracker` is the part you own. It has to answer two questions:
 | `sync_interval_ms` | How often you refresh cluster state. | `250` |
 | `fail_mode` | Intended behavior when coordination is unavailable. | `"accept_if_local_below_n"` |
 
-`zk_session_timeout_sec`, `sync_interval_ms`, and `fail_mode` describe the coordination layer you implement; the shipped hooks do not read them.
+`zk_session_timeout_sec`, `sync_interval_ms`, and `fail_mode` describe the coordination layer you implement; the shipped hooks do not read them. [Configuration](https://github.com/computo-experto/livekit-lkscaler/blob/main/livekit-lkscaler/docs/usage/configuration.md) splits every field into what LKScaler reads and what you supply.
 
 ## Behavior contract
 
@@ -111,7 +111,7 @@ The `tracker` is the part you own. It has to answer two questions:
 - A reservation is created before the job is accepted. If it cannot be created, the request is rejected without accepting.
 - If accepting raises, the reservation is removed before the exception propagates.
 - Reservations expire after `reservation_ttl_sec` and are removed on demand by the store.
-- `load_fnc` returns `0.0` for every worker whose free-slot count equals the smallest positive count in the cluster, so ties share the win; workers with no free slots, and clusters with no free slots at all, report `1.0`.
+- `load_fnc` returns `0.0` for the single worker the server picks as the placement winner and `1.0` for every other worker, so LiveKit has exactly one candidate. Ties on free slots are broken deterministically by pod ID, never shared; workers with no free slots, and clusters with no free slots at all, report `1.0`.
 
 ## Operational notes
 
