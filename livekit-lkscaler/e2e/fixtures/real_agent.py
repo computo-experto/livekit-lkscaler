@@ -41,7 +41,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Protocol, cast
 
 from livekit.agents import AgentServer, JobContext, JobRequest, WorkerOptions, cli
-from lkscaler_core import BinpackConfig, PodOccupancy, ReservationRecord
+from lkscaler_core import (
+    BinpackConfig,
+    PodOccupancy,
+    ReservationRecord,
+    RoomRecord,
+    decode_rooms,
+    orphan_room_ids,
+    rooms_by_pod,
+)
 from lkscaler_core.reservations import ReservationStore
 from lkscaler_core.state import PodState
 from lkscaler_livekit import build_load_fnc, build_on_request_handler
@@ -62,6 +70,16 @@ class ClusterCapableStore(Protocol):
     def free_slots_by_pod(self) -> dict[str, int]: ...
 
     def remove_expired(self, *, now: datetime) -> int: ...
+
+    def read_pod_states(self) -> dict[str, PodState]: ...
+
+    def publish_room(
+        self, *, room_id: str, pod_id: str, job_id: str, started_at: datetime
+    ) -> None: ...
+
+    def remove_room(self, *, room_id: str) -> None: ...
+
+    def read_rooms(self) -> list[dict[str, Any]]: ...
 
 
 class WorkerTracker:
@@ -109,8 +127,20 @@ class WorkerTracker:
                 job_ids.add(str(job_id))
         return job_ids
 
+    def _live_rooms(self) -> list[RoomRecord]:
+        if self._cluster_store is None:
+            return []
+        return decode_rooms(self._cluster_store.read_rooms())
+
+    def _live_room_count(self) -> int:
+        if self._cluster_store is None:
+            return len(self._server.active_jobs) if self._server is not None else 0
+        rooms = self._live_rooms()
+        states = self._cluster_store.read_pod_states()
+        return rooms_by_pod(rooms, states).get(self._pod_id, 0)
+
     def get_local_occupancy(self) -> PodOccupancy:
-        active = len(self._server.active_jobs) if self._server is not None else 0
+        active = self._live_room_count()
         running = self._running_job_ids()
         with self._lock:
             self._prune_locked()
@@ -164,6 +194,31 @@ class Runtime:
     def release(self, job_id: str) -> None:
         self.store.delete(pod_id=self.config.pod_id, job_id=job_id)
         self.tracker.release_reservation(job_id)
+
+    def start_room(self, *, room_id: str, job_id: str) -> None:
+        """Record the room in the shared list so every consumer sees the slot as used."""
+        if self.cluster_store is None:
+            return
+        self.cluster_store.publish_room(
+            room_id=room_id,
+            pod_id=self.config.pod_id,
+            job_id=job_id,
+            started_at=datetime.now(UTC),
+        )
+
+    def finish_room(self, *, room_id: str) -> None:
+        if self.cluster_store is None:
+            return
+        self.cluster_store.remove_room(room_id=room_id)
+
+    def sweep_orphan_rooms(self) -> None:
+        """Drop records left by workers whose pod state has expired."""
+        if self.cluster_store is None:
+            return
+        states = self.cluster_store.read_pod_states()
+        rooms = decode_rooms(self.cluster_store.read_rooms())
+        for room_id in orphan_room_ids(rooms, states):
+            self.cluster_store.remove_room(room_id=room_id)
 
     def close(self) -> None:
         if self.closer is not None:
@@ -221,6 +276,8 @@ async def entrypoint(ctx: JobContext) -> None:
     runtime = _ensure_runtime()
     job_id = ctx.job.id
     runtime.release(job_id)
+    runtime.start_room(room_id=str(ctx.room.name), job_id=job_id)
+    publish(runtime)
     logger.info("job assigned pod=%s job=%s", runtime.config.pod_id, job_id)
     await ctx.connect()
     closed = asyncio.Event()
@@ -229,6 +286,8 @@ async def entrypoint(ctx: JobContext) -> None:
         await closed.wait()
     finally:
         logger.info("job finished pod=%s job=%s", runtime.config.pod_id, job_id)
+        runtime.finish_room(room_id=str(ctx.room.name))
+        publish(runtime)
         if owns_runtime:
             runtime.close()
 
@@ -368,6 +427,7 @@ def main() -> None:
     def sync_loop() -> None:
         interval = runtime.config.sync_interval_ms / 1000
         while _running:
+            runtime.sweep_orphan_rooms()
             publish(runtime)
             if cluster_store is not None:
                 cluster_store.remove_expired(now=datetime.now(UTC))

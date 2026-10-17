@@ -18,12 +18,13 @@ import os
 import time
 from collections.abc import AsyncIterator, Callable
 from functools import partial
-from typing import Any
+from typing import Any, cast
 
 import aiohttp
 import pytest
 import pytest_asyncio
 from livekit import api
+from lkscaler_core import RoomRegistry
 from lkscaler_core.state import ClusterStateStore, PodState
 
 pytestmark = [pytest.mark.e2e, pytest.mark.asyncio]
@@ -70,6 +71,10 @@ def _states(store: ClusterStateStore) -> dict[str, PodState]:
 def _registered_pods(store: ClusterStateStore) -> dict[str, PodState] | None:
     states = _states(store)
     return states if all(pod_id in states for pod_id in PODS) else None
+
+
+def _running_rooms(store: ClusterStateStore) -> list[str]:
+    return [str(record["room_id"]) for record in cast(RoomRegistry, store).read_rooms()]
 
 
 def _rooms(store: ClusterStateStore, pod_id: str) -> int:
@@ -278,6 +283,10 @@ async def test_deleting_the_room_releases_the_worker_slot(stack: Stack) -> None:
     await _poll(
         lambda: _rooms(store, holder) == 0 or None,
         describe=f"{holder} to release the slot once the room ends",
+    )
+    await _poll(
+        lambda: "m9-release-1" not in _running_rooms(store) or None,
+        describe="the shared room list to drop m9-release-1",
     )
 
 
