@@ -186,6 +186,7 @@ Any other store works too, as long as it keeps the contract:
 
 ## Links
 
+- KEDA external scaler: [`lkscaler-keda`](https://pypi.org/project/lkscaler-keda/) (same repository)
 - License: Apache-2.0 (`LICENSE` ships with every release)
 - Source, design specs, and usage guides: <https://github.com/computo-experto/livekit-lkscaler>
 - Changelog: <https://github.com/computo-experto/livekit-lkscaler/blob/main/livekit-lkscaler/CHANGELOG.md>
