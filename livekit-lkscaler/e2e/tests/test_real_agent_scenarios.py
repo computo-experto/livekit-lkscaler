@@ -80,6 +80,12 @@ def _held(store: ClusterStateStore, pod_id: str) -> int:
     return state.active_rooms + state.reservations
 
 
+def _all_idle(store: ClusterStateStore) -> bool | None:
+    """True once no worker holds a room, so a scenario starts from a settled fleet."""
+    states = _states(store)
+    return True if not any(state.active_rooms for state in states.values()) else None
+
+
 def _lone_holder(store: ClusterStateStore, *, expects_rooms: int) -> str | None:
     states = _states(store)
     holders = [pod_id for pod_id, state in states.items() if state.active_rooms == expects_rooms]
@@ -165,6 +171,14 @@ async def stack() -> AsyncIterator[Stack]:
         pool = sorted(store.free_slots_by_pod())
         assert pool == sorted(PODS), (
             f"the real workers must be alone in their scaling pool, found {pool}"
+        )
+        # Room deletion ends a job asynchronously, so a scenario that starts while the
+        # previous one is still draining sees two holders and never a lone one. Wait for
+        # the pool to settle on the backend's own state instead of on a clock.
+        await _poll(
+            lambda: _all_idle(store),
+            describe="the pool to be idle before the scenario dispatches",
+            timeout=30,
         )
         try:
             yield store, client, rooms
