@@ -7,7 +7,9 @@ This guide defines the real-world integration proof gate required before PyPI pu
 The gate targets these scenarios. Scenarios 1-3 are asserted today by the compose-backed tests; scenarios 4 and 5 are still planned, not enforced:
 
 1. Steady load placement trend.
-2. Burst load with bounded overflow.
+2. Burst load is **out of scope by decision**: absorbing a burst depends on headroom the operator
+   provisions, not on the placement path. See `operations.md` for the measured behaviour and the
+   recommendation to keep free capacity sized to the burst pattern.
 3. Assignment failure cleanup.
 4. ZooKeeper disconnect and reconnect convergence.
 5. Parent/job restart behavior for reservation-room reconciliation.

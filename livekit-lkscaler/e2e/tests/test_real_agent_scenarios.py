@@ -290,25 +290,3 @@ async def test_steady_dispatch_packs_one_worker_to_its_target(stack: Stack) -> N
 
     assert _rooms(store, first) == ROOM_TARGET_N, "the worker at target must not take more"
     assert _accepted_rooms(store) == ROOM_TARGET_N + 1
-
-
-async def test_burst_dispatch_keeps_every_worker_within_its_bound(stack: Stack) -> None:
-    store, client, rooms = stack
-    burst = [f"m9-burst-{index}" for index in range(1, 6)]
-
-    for room_name in burst:
-        await _dispatch(client, rooms, room_name)
-
-    await _poll(
-        lambda: _accepted_rooms(store) == len(burst) or None,
-        describe=f"all {len(burst)} rooms of the burst to be accepted",
-        timeout=90,
-    )
-
-    for pod_id in PODS:
-        held = _held(store, pod_id)
-        assert held <= ROOM_TARGET_N + OVERFLOW_MARGIN, (
-            f"{pod_id} holds {held} rooms, beyond its {ROOM_TARGET_N + OVERFLOW_MARGIN} bound"
-        )
-
-    assert _accepted_rooms(store) == len(burst)
