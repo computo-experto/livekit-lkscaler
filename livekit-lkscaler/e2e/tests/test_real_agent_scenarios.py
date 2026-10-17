@@ -17,6 +17,7 @@ import inspect
 import os
 import time
 from collections.abc import AsyncIterator, Callable
+from functools import partial
 from typing import Any
 
 import aiohttp
@@ -78,6 +79,16 @@ def _rooms(store: ClusterStateStore, pod_id: str) -> int:
 def _held(store: ClusterStateStore, pod_id: str) -> int:
     state = _states(store)[pod_id]
     return state.active_rooms + state.reservations
+
+
+def _rooms_at(store: ClusterStateStore, pod_id: str, count: int) -> bool | None:
+    """True once `pod_id` reports exactly `count` rooms."""
+    return True if _rooms(store, pod_id) == count else None
+
+
+def _accepted_rooms(store: ClusterStateStore) -> int:
+    """Rooms the pool is holding, across every worker."""
+    return sum(state.active_rooms for state in _states(store).values())
 
 
 def _all_idle(store: ClusterStateStore) -> bool | None:
@@ -245,3 +256,59 @@ async def test_deleting_the_room_releases_the_worker_slot(stack: Stack) -> None:
         lambda: _rooms(store, holder) == 0 or None,
         describe=f"{holder} to release the slot once the room ends",
     )
+
+
+async def test_steady_dispatch_packs_one_worker_to_its_target(stack: Stack) -> None:
+    store, client, rooms = stack
+
+    await _dispatch(client, rooms, "m9-steady-1")
+    first = await _poll(
+        lambda: _lone_holder(store, expects_rooms=1),
+        describe="a real worker to accept the first room of a steady stream",
+    )
+
+    for index in range(2, ROOM_TARGET_N + 1):
+        await _dispatch(client, rooms, f"m9-steady-{index}")
+        await _poll(
+            partial(_rooms_at, store, first, index),
+            describe=f"{first} to accept room {index} of the steady stream",
+        )
+
+    assert _rooms(store, first) == ROOM_TARGET_N
+    for pod_id in PODS:
+        if pod_id != first:
+            assert _rooms(store, pod_id) == 0, (
+                f"{pod_id} took a steady room while {first} still had capacity"
+            )
+
+    # One room past the target: the full worker reports no capacity, so it spills.
+    await _dispatch(client, rooms, "m9-steady-spill")
+    await _poll(
+        lambda: _accepted_rooms(store) == ROOM_TARGET_N + 1 or None,
+        describe="the room past the target to be accepted elsewhere",
+    )
+
+    assert _rooms(store, first) == ROOM_TARGET_N, "the worker at target must not take more"
+    assert _accepted_rooms(store) == ROOM_TARGET_N + 1
+
+
+async def test_burst_dispatch_keeps_every_worker_within_its_bound(stack: Stack) -> None:
+    store, client, rooms = stack
+    burst = [f"m9-burst-{index}" for index in range(1, 6)]
+
+    for room_name in burst:
+        await _dispatch(client, rooms, room_name)
+
+    await _poll(
+        lambda: _accepted_rooms(store) == len(burst) or None,
+        describe=f"all {len(burst)} rooms of the burst to be accepted",
+        timeout=90,
+    )
+
+    for pod_id in PODS:
+        held = _held(store, pod_id)
+        assert held <= ROOM_TARGET_N + OVERFLOW_MARGIN, (
+            f"{pod_id} holds {held} rooms, beyond its {ROOM_TARGET_N + OVERFLOW_MARGIN} bound"
+        )
+
+    assert _accepted_rooms(store) == len(burst)
