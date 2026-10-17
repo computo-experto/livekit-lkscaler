@@ -1,4 +1,4 @@
-.PHONY: help format lint-check lint-fix typecheck test test-unit test-integration test-integration-zookeeper test-integration-redis test-e2e test-e2e-backends test-real-agent-wiring test-coverage test-proof all-checks milestone-gate proof-gate release-verify release-preflight verify-testpypi-install
+.PHONY: help format lint-check lint-fix typecheck test test-unit test-integration test-integration-zookeeper test-integration-redis test-e2e test-e2e-backends test-real-agent-wiring test-real-agent-scenarios test-coverage test-proof all-checks milestone-gate proof-gate release-verify release-preflight verify-testpypi-install
 
 .DEFAULT_GOAL := help
 
@@ -46,6 +46,9 @@ test-e2e-backends: ## Run the coordination end-to-end suite against each backend
 
 test-real-agent-wiring: ## Run the stack-free real-agent wiring tests
 	uv run pytest e2e/tests/test_real_agent_wiring.py
+
+test-real-agent-scenarios: ## Run the real-agent scenario suite against the compose stack
+	bash scripts/run_e2e_real_agents.sh
 
 test-proof: ## Run the end-to-end suite plus the Milestone 9 proof-gate assertions
 	bash scripts/run_proof_gate.sh

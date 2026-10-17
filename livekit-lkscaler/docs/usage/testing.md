@@ -90,6 +90,43 @@ These agents are simulators: they call the real placement functions, but there i
 dispatch window, so a green run proves coordination across processes, not LiveKit's dispatch
 path.
 
+#### `test_real_agent_wiring.py` and `test_real_agent_scenarios.py`
+The real-agent pair, covering what the simulator suite cannot: LiveKit's own dispatch path into
+a real `livekit-agents` worker.
+
+`test_real_agent_wiring.py` needs no stack. It loads `e2e/fixtures/real_agent.py` in-process and
+pins the composition — that the admission handler and the placement value reach `WorkerOptions`
+as `request_fnc` and `load_fnc`, that the tracker counts the SDK's own
+`AgentServer.active_jobs`, and that the value handed to the server is the placement formula
+(`0.0` for the single winning worker — fewest free slots above zero, pod id breaking ties — and `1.0` for every other worker). It also
+pins the two SDK contracts the worker lives under: the entrypoint is pickled into a per-job
+process, and that process builds its own runtime and releases the reservation the parent's
+handler made.
+
+```bash
+make test-real-agent-wiring
+```
+
+`test_real_agent_scenarios.py` drives real dispatches. Its runner brings up the `real-agents`
+profile — a production-mode LiveKit server plus three real workers — because `--dev` sets
+`load_threshold` to infinity, which would make the placement signal decorative:
+
+```bash
+make test-real-agent-scenarios
+LKSCALER_E2E_BACKENDS=zookeeper make test-real-agent-scenarios
+```
+
+A namespace is a scaling pool, so the real workers run in their own (`LKSCALER_E2E_REAL_NAMESPACE`,
+default `livekit-lkscaler-real`) rather than sharing the simulators': a pool that contains a pod which
+cannot serve LiveKit dispatch hands the winner slot to a pod the server can never pick. The suite asserts
+the pool holds exactly the workers under test.
+
+It asserts that two dispatched rooms pack onto one worker while the other two stay at zero and
+no worker exceeds `room_target_n + overflow_margin`, and that ending the room returns the slot.
+Before the second dispatch it waits until every worker has *reported* a load that leaves the
+server a single candidate: each worker serves what it last told the server, so the wait is on
+the server's view rather than on propagation timing.
+
 #### `test_proof_gate_artifacts.py`
 Validates compose artifacts (output from `docker compose ps` and logs) meet quantitative thresholds.
 

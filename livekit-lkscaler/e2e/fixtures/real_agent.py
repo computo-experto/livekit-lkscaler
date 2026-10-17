@@ -14,23 +14,30 @@ Wiring, verified against the installed SDK (1.6.2):
   below 1 in production mode, so the placement signal actually gates dispatch.
 - The entrypoint holds the job open (no media pipeline) because placement only needs
   the job to occupy a slot.
+- The SDK spawns one process per job and pickles these callables to get there, so the
+  entrypoint, request and load functions are module-level and reach their state
+  through the module-level runtime set by `build_worker`. A closure would fail with
+  "Can't get local object 'build_worker.<locals>.entrypoint'".
 
 Environment: LKSCALER_BACKEND, LKSCALER_NAMESPACE, LKSCALER_POD_ID, LKSCALER_ZK_HOSTS,
 LKSCALER_REDIS_URL, LKSCALER_ROOM_TARGET_N, LKSCALER_OVERFLOW_MARGIN,
 LKSCALER_RESERVATION_TTL_SEC, LKSCALER_SYNC_INTERVAL_MS, LKSCALER_LOAD_THRESHOLD,
-LKSCALER_POD_STATE_TTL_SEC, plus the SDK's own LIVEKIT_URL / LIVEKIT_API_KEY /
-LKSCALER_API_SECRET-equivalent LIVEKIT_API_SECRET.
+LKSCALER_POD_STATE_TTL_SEC, LKSCALER_AGENT_NAME, plus the SDK's own LIVEKIT_URL /
+LIVEKIT_API_KEY / LIVEKIT_API_SECRET.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import threading
 import time
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Protocol, cast
 
 from livekit.agents import AgentServer, JobContext, JobRequest, WorkerOptions, cli
@@ -91,10 +98,27 @@ class WorkerTracker:
             if record.is_expired(now=moment):
                 del self._pending[job_id]
 
+    def _running_job_ids(self) -> set[str]:
+        """Ids of the jobs the SDK server is running, when the SDK exposes them."""
+        if self._server is None:
+            return set()
+        job_ids: set[str] = set()
+        for running in self._server.active_jobs:
+            job_id = getattr(getattr(running, "job", None), "id", None)
+            if job_id:
+                job_ids.add(str(job_id))
+        return job_ids
+
     def get_local_occupancy(self) -> PodOccupancy:
         active = len(self._server.active_jobs) if self._server is not None else 0
+        running = self._running_job_ids()
         with self._lock:
             self._prune_locked()
+            # A job the server is already running is a room, not a claim: counting its own
+            # reservation too publishes free = capacity - 2 for one running job, so a worker
+            # holding one of two slots announces itself full and loses the winner slot.
+            for job_id in running:
+                self._pending.pop(job_id, None)
             return PodOccupancy(active_rooms=active, reservations=len(self._pending))
 
     def get_cluster_free_slots(self) -> dict[str, int]:
@@ -127,6 +151,109 @@ class NotifyingReservationStore(ReservationStore):
         return self._inner.remove_expired(now=now)
 
 
+@dataclass
+class Runtime:
+    config: BinpackConfig
+    store: ReservationStore
+    tracker: WorkerTracker
+    cluster_store: ClusterCapableStore | None
+    closer: Any
+    load_base: Callable[[], float]
+    on_request: Callable[[Any], Awaitable[None]]
+
+    def release(self, job_id: str) -> None:
+        self.store.delete(pod_id=self.config.pod_id, job_id=job_id)
+        self.tracker.release_reservation(job_id)
+
+    def close(self) -> None:
+        if self.closer is not None:
+            self.closer.close()
+
+
+_runtime: Runtime | None = None
+_last_report: tuple[float, float] | None = None
+
+
+def _build_runtime(
+    backend: tuple[ReservationStore, ClusterCapableStore | None, Any] | None = None,
+) -> Runtime:
+    config = _config_from_env()
+    store, cluster_store, closer = backend if backend is not None else _build_backend()
+    tracker = WorkerTracker(store=store, cluster_store=cluster_store, pod_id=config.pod_id)
+    notifying = NotifyingReservationStore(inner=store, tracker=tracker)
+    return Runtime(
+        config=config,
+        store=store,
+        tracker=tracker,
+        cluster_store=cluster_store,
+        closer=closer,
+        load_base=build_load_fnc(config=config, store=notifying, tracker=tracker),
+        on_request=build_on_request_handler(config=config, store=notifying, tracker=tracker),
+    )
+
+
+def _ensure_runtime() -> Runtime:
+    """The SDK imports this module anew in every job process, so each process builds
+    its own runtime rather than inheriting the parent's."""
+    global _runtime
+    if _runtime is None:
+        _runtime = _build_runtime()
+    return _runtime
+
+
+def publish(runtime: Runtime) -> None:
+    if runtime.cluster_store is None:
+        return
+    occupancy = runtime.tracker.get_local_occupancy()
+    runtime.cluster_store.publish_pod_state(
+        PodState(
+            pod_id=runtime.config.pod_id,
+            free_slots=occupancy.free_slots(room_target_n=runtime.config.room_target_n),
+            active_rooms=occupancy.active_rooms,
+            reservations=occupancy.reservations,
+            updated_at=datetime.now(UTC),
+        )
+    )
+
+
+async def entrypoint(ctx: JobContext) -> None:
+    owns_runtime = _runtime is None
+    runtime = _ensure_runtime()
+    job_id = ctx.job.id
+    runtime.release(job_id)
+    logger.info("job assigned pod=%s job=%s", runtime.config.pod_id, job_id)
+    await ctx.connect()
+    closed = asyncio.Event()
+    ctx.room.on("disconnected", lambda *_: closed.set())
+    try:
+        await closed.wait()
+    finally:
+        logger.info("job finished pod=%s job=%s", runtime.config.pod_id, job_id)
+        if owns_runtime:
+            runtime.close()
+
+
+def load_fnc(server: AgentServer) -> float:
+    global _last_report
+    runtime = _ensure_runtime()
+    runtime.tracker.attach(server)
+    value = float(runtime.load_base())
+    _last_report = (value, time.monotonic())
+    return value
+
+
+def reported_load() -> dict[str, Any]:
+    """What this worker last told the server, and how long ago."""
+    if _last_report is None:
+        return {"reported": None, "reported_age_ms": None}
+    value, at = _last_report
+    return {"reported": value, "reported_age_ms": round((time.monotonic() - at) * 1000)}
+
+
+async def request_fnc(job_req: JobRequest) -> None:
+    await _ensure_runtime().on_request(job_req)
+
+
 def _build_backend() -> tuple[ReservationStore, ClusterCapableStore | None, Any]:
     backend = os.environ.get("LKSCALER_BACKEND", "zookeeper")
     namespace = os.environ.get("LKSCALER_NAMESPACE", "livekit-lkscaler")
@@ -155,24 +282,6 @@ def _build_backend() -> tuple[ReservationStore, ClusterCapableStore | None, Any]
     raise SystemExit(f"unsupported LKSCALER_BACKEND: {backend}")
 
 
-def _publish(
-    cluster_store: ClusterCapableStore,
-    *,
-    pod_id: str,
-    occupancy: PodOccupancy,
-    room_target_n: int,
-) -> None:
-    cluster_store.publish_pod_state(
-        PodState(
-            pod_id=pod_id,
-            free_slots=occupancy.free_slots(room_target_n=room_target_n),
-            active_rooms=occupancy.active_rooms,
-            reservations=occupancy.reservations,
-            updated_at=datetime.now(UTC),
-        )
-    )
-
-
 def _config_from_env() -> BinpackConfig:
     return BinpackConfig(
         namespace=os.environ.get("LKSCALER_NAMESPACE", "livekit-lkscaler"),
@@ -189,79 +298,93 @@ def build_worker(
     backend: tuple[ReservationStore, ClusterCapableStore | None, Any] | None = None,
 ) -> tuple[WorkerOptions, WorkerTracker, ClusterCapableStore | None, Any]:
     """Build the real worker: SDK options plus the LKScaler hooks and tracker."""
-    config = _config_from_env()
-    store, cluster_store, closer = backend if backend is not None else _build_backend()
-    tracker = WorkerTracker(store=store, cluster_store=cluster_store, pod_id=config.pod_id)
-    notifying = NotifyingReservationStore(inner=store, tracker=tracker)
-    base_load = build_load_fnc(config=config, store=notifying, tracker=tracker)
-    on_request = build_on_request_handler(config=config, store=notifying, tracker=tracker)
+    global _runtime
 
-    def load_fnc(server: AgentServer) -> float:
-        tracker.attach(server)
-        return float(base_load())
-
-    async def entrypoint(ctx: JobContext) -> None:
-        job_id = ctx.job.id
-        tracker.release_reservation(job_id)
-        if cluster_store is not None:
-            _publish(
-                cluster_store,
-                pod_id=config.pod_id,
-                occupancy=tracker.get_local_occupancy(),
-                room_target_n=config.room_target_n,
-            )
-        logger.info("job assigned pod=%s job=%s", config.pod_id, job_id)
-        await ctx.connect()
-        try:
-            await asyncio.Event().wait()
-        finally:
-            logger.info("job finished pod=%s job=%s", config.pod_id, job_id)
+    _runtime = _build_runtime(backend)
 
     options = WorkerOptions(
         entrypoint_fnc=entrypoint,
-        # the hook is duck-typed on purpose (it works across SDK versions); the runtime
-        # contract -- id, accept keywords, reject(terminate=...) -- matches JobRequest.
-        request_fnc=cast("Callable[[JobRequest], Awaitable[None]]", on_request),
+        request_fnc=cast("Callable[[JobRequest], Awaitable[None]]", request_fnc),
         load_fnc=load_fnc,
         load_threshold=float(os.environ.get("LKSCALER_LOAD_THRESHOLD", "0.7")),
         agent_name=os.environ.get("LKSCALER_AGENT_NAME", ""),
     )
-    return options, tracker, cluster_store, closer
+    return options, _runtime.tracker, _runtime.cluster_store, _runtime.closer
+
+
+def build_http(port: int) -> ThreadingHTTPServer:
+    """Serve this worker's placement inputs so E2E can observe what it reports."""
+    runtime = _ensure_runtime()
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, fmt: str, *args: Any) -> None:
+            logger.info("http %s", fmt % args)
+
+        def _send(self, payload: dict[str, Any], status: int = 200) -> None:
+            body = json.dumps(payload).encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self) -> None:
+            occupancy = runtime.tracker.get_local_occupancy()
+            if self.path == "/health":
+                self._send({"ok": True, "pod_id": runtime.config.pod_id})
+            elif self.path == "/load":
+                self._send(
+                    {
+                        "load": float(runtime.load_base()),
+                        "pod_id": runtime.config.pod_id,
+                        **reported_load(),
+                    }
+                )
+            elif self.path == "/occupancy":
+                self._send(
+                    {
+                        "pod_id": runtime.config.pod_id,
+                        "active_rooms": occupancy.active_rooms,
+                        "reservations": occupancy.reservations,
+                        "free_slots": occupancy.free_slots(
+                            room_target_n=runtime.config.room_target_n
+                        ),
+                    }
+                )
+            elif self.path == "/cluster":
+                self._send({"free_slots_by_pod": runtime.tracker.get_cluster_free_slots()})
+            else:
+                self._send({"error": "not found"}, 404)
+
+    return ThreadingHTTPServer(("0.0.0.0", port), Handler)
 
 
 def main() -> None:
     global _running
 
     options, tracker, cluster_store, closer = build_worker()
-    namespace = os.environ.get("LKSCALER_NAMESPACE", "livekit-lkscaler")
-    pod_id = os.environ.get("LKSCALER_POD_ID", "real-agent")
-    room_target_n = _env_int("LKSCALER_ROOM_TARGET_N", 2)
-    sync_interval_ms = _env_int("LKSCALER_SYNC_INTERVAL_MS", 500)
-
-    def publish() -> None:
-        if cluster_store is not None:
-            _publish(
-                cluster_store,
-                pod_id=pod_id,
-                occupancy=tracker.get_local_occupancy(),
-                room_target_n=room_target_n,
-            )
+    runtime = _ensure_runtime()
 
     def sync_loop() -> None:
-        interval = sync_interval_ms / 1000
+        interval = runtime.config.sync_interval_ms / 1000
         while _running:
-            publish()
+            publish(runtime)
             if cluster_store is not None:
                 cluster_store.remove_expired(now=datetime.now(UTC))
             time.sleep(interval)
 
-    publish()
+    publish(runtime)
     threading.Thread(target=sync_loop, daemon=True).start()
+    port = _env_int("LKSCALER_HTTP_PORT", 8090)
+    if port > 0:
+        httpd = build_http(port)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
     logger.info(
-        "real agent starting pod=%s backend=%s namespace=%s threshold=%s",
-        pod_id,
+        "real agent starting pod=%s backend=%s namespace=%s port=%s threshold=%s",
+        runtime.config.pod_id,
         os.environ.get("LKSCALER_BACKEND", "zookeeper"),
-        namespace,
+        runtime.config.namespace,
+        port,
         options.load_threshold,
     )
     try:

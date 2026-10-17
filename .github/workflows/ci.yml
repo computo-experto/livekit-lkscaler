@@ -56,6 +56,9 @@ jobs:
       - name: Coordination backend E2E tests
         run: make test-e2e-backends
 
+      - name: Real-agent scenario tests (ZooKeeper)
+        run: LKSCALER_E2E_BACKENDS=zookeeper make test-real-agent-scenarios
+
       - name: Upload E2E artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
