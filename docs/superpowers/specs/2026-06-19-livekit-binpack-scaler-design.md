@@ -86,8 +86,9 @@ Each pod evaluates the cluster snapshot to decide whether to advertise availabil
 
 1. Compute local `free_slots = N - active_rooms - reservations`.
 2. Read peers' `free_slots` from cached ZooKeeper snapshot.
-3. Compute `min_positive_free_slots` across pods with `free_slots > 0`.
-4. If local `free_slots == min_positive_free_slots`, report `0.0`.
+3. The winner is the single pod with the fewest free slots above zero, pod id breaking
+   ties so every worker reading the same view picks the same pod.
+4. Report `0.0` for that pod and `1.0` for every other pod.
 5. Otherwise report `1.0` (busy), even if local pod has spare capacity.
 
 This intentionally reports busy for non-winning pods so LiveKit tends to dispatch to the fullest eligible pod(s), promoting bin-packing.

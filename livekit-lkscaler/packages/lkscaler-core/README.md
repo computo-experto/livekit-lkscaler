@@ -42,19 +42,18 @@ assert occupancy.free_slots(room_target_n=4) == 1
 
 ### Load signal
 
-LiveKit asks each worker for a load value; the winner is the worker with the smallest positive free-slot count:
+LiveKit asks each worker for a load value; exactly one worker is the winner — the one holding the fewest free slots above zero, with the worker id breaking ties so every worker reading the same view agrees:
 
 ```python
-from lkscaler_core import choose_load_signal, min_positive_free_slots
+from lkscaler_core import choose_load_signal, pick_winner_pod
 
-cluster_free_slots = {"worker-a": 2, "worker-b": 0}
-winner_threshold = min_positive_free_slots(cluster_free_slots.values())
-assert winner_threshold == 2
-assert choose_load_signal(local_free_slots=2, min_positive_free_slots=winner_threshold) == 0.0
-assert choose_load_signal(local_free_slots=1, min_positive_free_slots=winner_threshold) == 1.0
+cluster_free_slots = {"worker-a": 2, "worker-b": 1, "worker-c": 0}
+assert pick_winner_pod(cluster_free_slots) == "worker-b"
+assert choose_load_signal(local_pod_id="worker-b", free_slots_by_pod=cluster_free_slots) == 0.0
+assert choose_load_signal(local_pod_id="worker-a", free_slots_by_pod=cluster_free_slots) == 1.0
 ```
 
-A worker with no free slots, or a cluster with no free slots at all, reports `1.0`.
+A worker with no free slots, a worker missing from the cluster view, or a cluster with no free slots at all reports `1.0`.
 
 ### Coordination paths
 
@@ -145,7 +144,8 @@ assert summary.snapshot_age_sec == 30
 | `ReservationStore` | Store interface: `create`, `delete`, `get`. |
 | `InMemoryReservationStore` | Single-process store, plus `remove_expired(now=...)` and `create_with_ttl(...)`. |
 | `reserve_for_admission`, `cleanup_unassigned_reservation`, `AdmissionResult` | Reservation-first admission decision and cleanup. |
-| `min_positive_free_slots`, `choose_load_signal` | Winner selection and the `0.0` / `1.0` load value. |
+| `pick_winner_pod`, `choose_load_signal` | Unique winner selection and the `0.0` / `1.0` load value. |
+| `min_positive_free_slots` | Smallest free-slot count above zero, for summaries. |
 | `ZkPaths` | Path helper for the shared coordination data model. |
 | `ClusterSnapshot`, `ClusterSnapshotCache` | Lock-protected view of free slots per worker. |
 | `lkscaler_core.snapshot.summarize_cluster_snapshot`, `PodSnapshot`, `ClusterSnapshotSummary` | Cluster totals, idle-worker count, smallest idle-worker free slots, snapshot age. |
