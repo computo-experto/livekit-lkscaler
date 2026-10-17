@@ -178,6 +178,24 @@ async def _release_rooms(client: api.LiveKitAPI, rooms: list[str]) -> None:
         rooms.remove(room_name)
 
 
+async def _poll_replicas(
+    store: ZooKeeperStateStore, expected: int, *, describe: str, timeout: float
+) -> None:
+    """Wait for ready replicas, failing with the evidence a diagnosis needs."""
+    deadline = time.monotonic() + timeout
+    last = 0
+    while time.monotonic() < deadline:
+        last = _ready_replicas()
+        if last >= expected:
+            return
+        await _async_sleep()
+    pytest.fail(
+        f"timed out after {timeout}s waiting for {describe}; "
+        f"ready replicas={last}, used slots={_used_slots(store)}, "
+        f"deployment={_describe_deployment()}"
+    )
+
+
 def _describe_deployment() -> dict[str, object]:
     result = subprocess.run(
         ["kubectl", "get", "deployment", DEPLOYMENT, "-n", NAMESPACE, "-o", "json"],
@@ -224,8 +242,9 @@ async def test_keda_scales_the_worker_deployment_up_and_back_down(
         f"the pool should hold {used_one_worker} slots before the scale assertion, "
         f"saw {_used_slots(store)}"
     )
-    await _poll(
-        lambda: _ready_replicas() >= _expected_replicas(used_one_worker) or None,
+    await _poll_replicas(
+        store,
+        _expected_replicas(used_one_worker),
         describe=(
             f"replicas to reach {_expected_replicas(used_one_worker)} with {used_one_worker} rooms"
         ),
