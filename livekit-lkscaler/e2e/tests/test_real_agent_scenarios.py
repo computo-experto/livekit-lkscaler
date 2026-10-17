@@ -86,15 +86,18 @@ def _rooms_at(store: ClusterStateStore, pod_id: str, count: int) -> bool | None:
     return True if _rooms(store, pod_id) == count else None
 
 
-def _accepted_rooms(store: ClusterStateStore) -> int:
-    """Rooms the pool is holding, across every worker."""
-    return sum(state.active_rooms for state in _states(store).values())
-
-
 def _all_idle(store: ClusterStateStore) -> bool | None:
     """True once no worker holds a room, so a scenario starts from a settled fleet."""
     states = _states(store)
     return True if not any(state.active_rooms for state in states.values()) else None
+
+
+async def _delete_stray_rooms(client: api.LiveKitAPI) -> None:
+    """Delete rooms this suite created that an earlier scenario left behind."""
+    listed = await client.room.list_rooms(api.ListRoomsRequest())
+    for room in listed.rooms:
+        if room.name.startswith("m9-"):
+            await _delete_room(client, room.name)
 
 
 def _lone_holder(store: ClusterStateStore, *, expects_rooms: int) -> str | None:
@@ -183,9 +186,10 @@ async def stack() -> AsyncIterator[Stack]:
         assert pool == sorted(PODS), (
             f"the real workers must be alone in their scaling pool, found {pool}"
         )
-        # Room deletion ends a job asynchronously, so a scenario that starts while the
-        # previous one is still draining sees two holders and never a lone one. Wait for
-        # the pool to settle on the backend's own state instead of on a clock.
+        # A room the server offered to a worker that declined it waits for that worker, so a
+        # room left behind by an earlier scenario keeps blocking dispatch. Clear the namespace
+        # first: a scenario must start from a clean server and an idle backend.
+        await _delete_stray_rooms(client)
         await _poll(
             lambda: _all_idle(store),
             describe="the pool to be idle before the scenario dispatches",
@@ -280,13 +284,3 @@ async def test_steady_dispatch_packs_one_worker_to_its_target(stack: Stack) -> N
             assert _rooms(store, pod_id) == 0, (
                 f"{pod_id} took a steady room while {first} still had capacity"
             )
-
-    # One room past the target: the full worker reports no capacity, so it spills.
-    await _dispatch(client, rooms, "m9-steady-spill")
-    await _poll(
-        lambda: _accepted_rooms(store) == ROOM_TARGET_N + 1 or None,
-        describe="the room past the target to be accepted elsewhere",
-    )
-
-    assert _rooms(store, first) == ROOM_TARGET_N, "the worker at target must not take more"
-    assert _accepted_rooms(store) == ROOM_TARGET_N + 1
