@@ -36,6 +36,8 @@ cleanup() {
 	kubectl get scaledobject -A >"${ARTIFACT_DIR}/scaledobjects.txt" 2>&1 || true
 	kubectl get hpa -A >"${ARTIFACT_DIR}/hpa.txt" 2>&1 || true
 	kubectl describe scaledobject -A >"${ARTIFACT_DIR}/scaledobject-describe.txt" 2>&1 || true
+	# Events are the only record of the rescale decisions, so the proof is auditable after the run.
+	kubectl get events -A --sort-by=.lastTimestamp >"${ARTIFACT_DIR}/events.txt" 2>&1 || true
 	kubectl logs -n "${NAMESPACE}" deployment/livekit-agents >"${ARTIFACT_DIR}/livekit-agents-logs.txt" 2>&1 || true
 	kubectl logs -n "${NAMESPACE}" deployment/lkscaler-keda >"${ARTIFACT_DIR}/lkscaler-keda-logs.txt" 2>&1 || true
 	kubectl logs -n "${NAMESPACE}" deployment/livekit >"${ARTIFACT_DIR}/livekit-logs.txt" 2>&1 || true
