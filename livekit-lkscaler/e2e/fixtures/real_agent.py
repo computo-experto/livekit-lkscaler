@@ -48,7 +48,6 @@ from lkscaler_core import (
     RoomRecord,
     decode_rooms,
     orphan_room_ids,
-    rooms_by_pod,
 )
 from lkscaler_core.reservations import ReservationStore
 from lkscaler_core.state import PodState
@@ -135,9 +134,7 @@ class WorkerTracker:
     def _live_room_count(self) -> int:
         if self._cluster_store is None:
             return len(self._server.active_jobs) if self._server is not None else 0
-        rooms = self._live_rooms()
-        states = self._cluster_store.read_pod_states()
-        return rooms_by_pod(rooms, states).get(self._pod_id, 0)
+        return sum(1 for room in self._live_rooms() if room.pod_id == self._pod_id)
 
     def get_local_occupancy(self) -> PodOccupancy:
         active = self._live_room_count()
@@ -197,7 +194,7 @@ class Runtime:
 
     def start_room(self, *, room_id: str, job_id: str) -> None:
         """Record the room in the shared list so every consumer sees the slot as used."""
-        if self.cluster_store is None:
+        if self.cluster_store is None or not room_id:
             return
         self.cluster_store.publish_room(
             room_id=room_id,
@@ -207,7 +204,7 @@ class Runtime:
         )
 
     def finish_room(self, *, room_id: str) -> None:
-        if self.cluster_store is None:
+        if self.cluster_store is None or not room_id:
             return
         self.cluster_store.remove_room(room_id=room_id)
 
@@ -275,8 +272,8 @@ async def entrypoint(ctx: JobContext) -> None:
     owns_runtime = _runtime is None
     runtime = _ensure_runtime()
     job_id = ctx.job.id
-    room_id = str(ctx.job.room.name) if ctx.job.room is not None else str(ctx.room.name)
     runtime.release(job_id)
+    room_id = _room_name(ctx)
     runtime.start_room(room_id=room_id, job_id=job_id)
     publish(runtime)
     logger.info("job assigned pod=%s job=%s", runtime.config.pod_id, job_id)
@@ -291,6 +288,12 @@ async def entrypoint(ctx: JobContext) -> None:
         publish(runtime)
         if owns_runtime:
             runtime.close()
+
+
+def _room_name(ctx: Any) -> str:
+    room = getattr(getattr(ctx, "job", None), "room", None)
+    name = getattr(room, "name", None) or getattr(getattr(ctx, "room", None), "name", None)
+    return str(name) if name else ""
 
 
 def load_fnc(server: AgentServer) -> float:
