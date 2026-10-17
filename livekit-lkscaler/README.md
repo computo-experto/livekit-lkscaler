@@ -8,6 +8,7 @@ No particular autoscaler is required. Use Kubernetes HPA or KEDA if you have the
 
 - `packages/lkscaler-core`: core bin-packing and reservation lifecycle logic.
 - `packages/lkscaler-livekit`: LiveKit Agent SDK hooks built on top of core.
+- `packages/lkscaler-keda`: KEDA external scaler that turns the placement signal into a replica count.
 - `e2e`: Docker Compose stack and end-to-end tests.
 - `scripts`: helper scripts for integration, e2e, and release verification.
 
@@ -65,15 +66,15 @@ Apache-2.0 — see `LICENSE` and `NOTICE` in the repository root.
 ## Publishing
 
 Publishing is handled by `.github/workflows/publish.yml` via OIDC trusted publishing. One run publishes
-both `lkscaler-core` and `livekit-lkscaler` together: build both, twine check, smoke-install both wheels in
+all three packages together: build them, twine check, smoke-install the wheels in
 the runner, publish both to TestPyPI, gate on installing both from TestPyPI, then publish both to PyPI when
 the target is `both`.
 
 Triggers:
 
 - `workflow_dispatch` with target `testpypi` (rehearsal) or `both` (TestPyPI, then PyPI).
-- Pushing a `release-vX.Y.Z` tag, which runs the staged flow for both packages and requires the tag to
+- Pushing a `release-vX.Y.Z` tag, which runs the staged flow for all three packages and requires the tag to
   match the package versions.
 
-Keep both package versions identical before releasing; the workflow and `make release-verify` reject a
+Keep all three package versions identical before releasing; the workflow and `make release-verify` reject a
 mismatch.

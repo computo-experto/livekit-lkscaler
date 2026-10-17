@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lkscaler-keda
+  namespace: livekit-system
+  labels:
+    app: lkscaler-keda
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lkscaler-keda
+  template:
+    metadata:
+      labels:
+        app: lkscaler-keda
+    spec:
+      # Kubernetes service links would inject LIVEKIT_PORT=tcp://... and break livekit-server's own flag.
+      enableServiceLinks: false
+      containers:
+        - name: scaler
+          image: lkscaler-e2e-real-agent:local
+          imagePullPolicy: IfNotPresent
+          command: ["/app/.venv/bin/lkscaler-keda-scaler"]
+          env:
+            - name: LKSCALER_KEDA_PORT
+              value: "9090"
+          ports:
+            - name: grpc
+              containerPort: 9090
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lkscaler-keda
+  namespace: livekit-system
+spec:
+  selector:
+    app: lkscaler-keda
+  ports:
+    - name: grpc
+      port: 9090
+      targetPort: 9090

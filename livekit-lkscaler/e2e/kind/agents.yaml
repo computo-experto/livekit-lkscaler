@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: livekit-agents
+  namespace: livekit-system
+  labels:
+    app: livekit-agents
+spec:
+  # KEDA owns this replica count through the ScaledObject; one worker is the floor.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: livekit-agents
+  template:
+    metadata:
+      labels:
+        app: livekit-agents
+    spec:
+      # Kubernetes service links would inject LIVEKIT_PORT=tcp://... and break livekit-server's own flag.
+      enableServiceLinks: false
+      containers:
+        - name: agent
+          image: lkscaler-e2e-real-agent:local
+          imagePullPolicy: IfNotPresent
+          command: ["/app/.venv/bin/python", "-u", "e2e/fixtures/real_agent.py", "start"]
+          env:
+            - name: LIVEKIT_URL
+              value: "ws://livekit:7880"
+            - name: LIVEKIT_API_KEY
+              value: "devkey"
+            - name: LIVEKIT_API_SECRET
+              value: "devsecretdevsecretdevsecretdevsecret"
+            - name: LKSCALER_BACKEND
+              value: "zookeeper"
+            - name: LKSCALER_NAMESPACE
+              value: "livekit-lkscaler"
+            - name: LKSCALER_POD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: LKSCALER_ZK_HOSTS
+              value: "zk:2181"
+            - name: LKSCALER_ZK_SESSION_TIMEOUT_SEC
+              value: "5"
+            - name: LKSCALER_ROOM_TARGET_N
+              value: "2"
+            - name: LKSCALER_OVERFLOW_MARGIN
+              value: "1"
+            - name: LKSCALER_RESERVATION_TTL_SEC
+              value: "5"
+            - name: LKSCALER_POD_STATE_TTL_SEC
+              value: "5"
+            - name: LKSCALER_SYNC_INTERVAL_MS
+              value: "250"
+            - name: LKSCALER_LOAD_THRESHOLD
+              value: "0.7"
+            - name: LKSCALER_AGENT_NAME
+              value: "m9real"
+            - name: LKSCALER_HTTP_PORT
+              value: "8090"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi

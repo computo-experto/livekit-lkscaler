@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: livekit
+  namespace: livekit-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: livekit
+  template:
+    metadata:
+      labels:
+        app: livekit
+    spec:
+      # Kubernetes service links would inject LIVEKIT_PORT=tcp://... and break livekit-server's own flag.
+      enableServiceLinks: false
+      containers:
+        - name: livekit
+          image: livekit/livekit-server:latest
+          args: ["--bind", "0.0.0.0"]
+          env:
+            # Production mode: no --dev, so the worker load threshold actually gates dispatch.
+            - name: LIVEKIT_KEYS
+              value: "devkey: devsecretdevsecretdevsecretdevsecret"
+            - name: LIVEKIT_RTC_USE_EXTERNAL_IP
+              value: "false"
+          ports:
+            - name: http
+              containerPort: 7880
+            - name: rtc-udp
+              containerPort: 7881
+              protocol: UDP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 3
+            failureThreshold: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: livekit
+  namespace: livekit-system
+spec:
+  selector:
+    app: livekit
+  ports:
+    - name: http
+      port: 7880
+      targetPort: 7880

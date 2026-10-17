@@ -1,4 +1,4 @@
-.PHONY: help format lint-check lint-fix typecheck test test-unit test-integration test-integration-zookeeper test-integration-redis test-e2e test-e2e-backends test-real-agent-wiring test-real-agent-scenarios test-coverage test-proof all-checks milestone-gate proof-gate release-verify release-preflight verify-testpypi-install
+.PHONY: help format lint-check lint-fix typecheck test test-unit test-integration test-integration-zookeeper test-integration-redis test-e2e test-e2e-backends test-real-agent-wiring test-real-agent-scenarios test-keda-scale-e2e test-coverage test-proof all-checks milestone-gate proof-gate release-verify release-preflight verify-testpypi-install
 
 .DEFAULT_GOAL := help
 
@@ -50,6 +50,9 @@ test-real-agent-wiring: ## Run the stack-free real-agent wiring tests
 test-real-agent-scenarios: ## Run the real-agent scenario suite against the compose stack
 	bash scripts/run_e2e_real_agents.sh
 
+test-keda-scale-e2e: ## Prove KEDA scales real workers up and down in kind
+	bash scripts/run_keda_scale_e2e.sh
+
 test-proof: ## Run the end-to-end suite plus the Milestone 9 proof-gate assertions
 	bash scripts/run_proof_gate.sh
 
@@ -57,7 +60,7 @@ all-checks: lint-check typecheck test ## Run lint, typecheck and tests
 
 milestone-gate: format lint-check typecheck test test-coverage test-e2e ## Run the full per-milestone gate
 
-proof-gate: milestone-gate test-proof ## Run the milestone gate plus the proof assertions
+proof-gate: milestone-gate test-proof test-keda-scale-e2e ## Run the milestone gate, the proof assertions and the KEDA scale proof
 
 release-verify: ## Build and smoke-install both published packages
 	bash scripts/release_verify.sh

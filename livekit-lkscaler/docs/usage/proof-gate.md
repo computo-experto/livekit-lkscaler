@@ -15,6 +15,7 @@ The gate targets these scenarios. Scenarios 1-3 are asserted today by the compos
    as a central store, so a total outage is not a failure mode to engineer against. The behaviour is
    KEDA's `fallback` block plus the store TTL for stale pods, documented in the scaler's README.
 5. Parent/job restart behavior for reservation-room reconciliation.
+6. KEDA scale up **and** back down on a real Deployment in kind (`make test-keda-scale-e2e`).
 
 ## Gate command
 
