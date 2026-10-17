@@ -73,6 +73,11 @@ Operational notes:
   `store.remove_expired(now=...)` on an interval.
 - Republishing a pod state updates the existing node, so a tracker can call
   `publish_pod_state` every `sync_interval_ms` without growing the tree.
+- The room list is the authority on occupancy: a worker writes a room record when it accepts a job
+  and deletes it when the job ends, and every consumer derives `active_rooms` from `read_rooms()`.
+  A record only counts while its owner still publishes a pod state, so a worker that dies stops
+  counting as soon as its pod state expires; `lkscaler_core.rooms.orphan_room_ids` gives the records
+  any worker may then delete.
 - Namespaces are isolated, so one ensemble can host several pools: give each pool its own
   `namespace` and only that pool's workers read it.
 
@@ -93,7 +98,9 @@ store = RedisStateStore(namespace="livekit-lkscaler", client=adapter, pod_state_
 Key layout:
 
 - `livekit-binpack:{namespace}:pods:{pod_id}` — this worker's occupancy, TTL-bounded.
-- `livekit-binpack:{namespace}:rooms:{room_id}` — a live room.
+- `livekit-binpack:{namespace}:rooms:{room_id}` — a live room, written without a TTL: a room
+  outlives the pod-state window and is retired by its owner on job finish, or swept once the owner
+  stops publishing state (`lkscaler_core.rooms.orphan_room_ids`).
 - `livekit-binpack:{namespace}:reservations:{pod_id}:{job_id}` — a claim, TTL equal to the
   reservation lifetime.
 

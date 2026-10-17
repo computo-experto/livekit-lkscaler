@@ -10,7 +10,8 @@ Use LKScaler when you run LiveKit Agents yourself and want placement and replica
 shared, inspectable view of the fleet. What ships, and what stays yours:
 
 - Shipped: the admission decision and its overflow guard, single-winner load signalling, reservation claims
-  with TTL expiry, coordination over ZooKeeper or Redis, and the KEDA external scaler.
+  with TTL expiry, the shared room list every consumer derives occupancy from (`lkscaler_core.rooms`),
+  coordination over ZooKeeper or Redis, and the KEDA external scaler.
 - Yours: the store connection, the tracker that publishes each worker's occupancy on a cadence, and the
   replica-manager policy. `e2e/fixtures/real_agent.py` is the reference composition; it is test code today, not
   a packaged runtime.

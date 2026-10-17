@@ -275,8 +275,9 @@ async def entrypoint(ctx: JobContext) -> None:
     owns_runtime = _runtime is None
     runtime = _ensure_runtime()
     job_id = ctx.job.id
+    room_id = str(ctx.job.room.name) if ctx.job.room is not None else str(ctx.room.name)
     runtime.release(job_id)
-    runtime.start_room(room_id=str(ctx.room.name), job_id=job_id)
+    runtime.start_room(room_id=room_id, job_id=job_id)
     publish(runtime)
     logger.info("job assigned pod=%s job=%s", runtime.config.pod_id, job_id)
     await ctx.connect()
@@ -286,7 +287,7 @@ async def entrypoint(ctx: JobContext) -> None:
         await closed.wait()
     finally:
         logger.info("job finished pod=%s job=%s", runtime.config.pod_id, job_id)
-        runtime.finish_room(room_id=str(ctx.room.name))
+        runtime.finish_room(room_id=room_id)
         publish(runtime)
         if owns_runtime:
             runtime.close()

@@ -177,6 +177,8 @@ class RedisStateStore(ReservationStore):
         return {pod_id: state.free_slots for pod_id, state in self.read_pod_states().items()}
 
     def publish_room(self, *, room_id: str, pod_id: str, job_id: str, started_at: datetime) -> None:
+        # No TTL: a room outlives the pod-state window by design, and it is retired by its owner on
+        # job finish or swept once the owner stops publishing state.
         self._client.set_value(
             self._keys.room(room_id),
             _encode_payload(
@@ -187,7 +189,7 @@ class RedisStateStore(ReservationStore):
                     "started_at": _as_utc(started_at).isoformat(),
                 }
             ),
-            ttl_ms=self._pod_state_ttl_ms,
+            ttl_ms=None,
         )
 
     def remove_room(self, *, room_id: str) -> None:
@@ -207,7 +209,7 @@ class RedisCommandClient(Protocol):
 
     def set_if_absent(self, key: str, value: bytes, *, ttl_ms: int) -> bool: ...
 
-    def set_value(self, key: str, value: bytes, *, ttl_ms: int) -> None: ...
+    def set_value(self, key: str, value: bytes, *, ttl_ms: int | None) -> None: ...
 
     def get_value(self, key: str) -> bytes | None: ...
 
@@ -243,9 +245,12 @@ class MemoryRedisClient:
         self._expires_at_ms[key] = self._now_ms + ttl_ms
         return True
 
-    def set_value(self, key: str, value: bytes, *, ttl_ms: int) -> None:
+    def set_value(self, key: str, value: bytes, *, ttl_ms: int | None) -> None:
         self._values[key] = value
-        self._expires_at_ms[key] = self._now_ms + ttl_ms
+        if ttl_ms is None:
+            self._expires_at_ms.pop(key, None)
+        else:
+            self._expires_at_ms[key] = self._now_ms + ttl_ms
 
     def get_value(self, key: str) -> bytes | None:
         self.advance_ms(0)
@@ -287,7 +292,7 @@ class RedisClientAdapter:
     def set_if_absent(self, key: str, value: bytes, *, ttl_ms: int) -> bool:
         return bool(self._client.set(key, value, nx=True, px=ttl_ms))
 
-    def set_value(self, key: str, value: bytes, *, ttl_ms: int) -> None:
+    def set_value(self, key: str, value: bytes, *, ttl_ms: int | None) -> None:
         self._client.set(key, value, px=ttl_ms)
 
     def get_value(self, key: str) -> bytes | None:
