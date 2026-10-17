@@ -31,7 +31,7 @@ SERVER_HTTP = os.environ.get("LKSCALER_E2E_SERVER_HTTP", "http://127.0.0.1:17880
 API_KEY = "devkey"
 API_SECRET = "devsecretdevsecretdevsecretdevsecret"
 AGENT_NAME = "m9real"
-NAMESPACE = os.environ.get("LKSCALER_E2E_NAMESPACE", "livekit-lkscaler-e2e")
+NAMESPACE = os.environ.get("LKSCALER_E2E_REAL_NAMESPACE", "livekit-lkscaler-real")
 PODS = ("real-agent1", "real-agent2", "real-agent3")
 ROOM_TARGET_N = 2
 OVERFLOW_MARGIN = 1
@@ -161,6 +161,10 @@ async def stack() -> AsyncIterator[Stack]:
             lambda: _registered_pods(store),
             describe=f"the real workers {PODS} to register and publish pod state",
             timeout=120,
+        )
+        pool = sorted(store.free_slots_by_pod())
+        assert pool == sorted(PODS), (
+            f"the real workers must be alone in their scaling pool, found {pool}"
         )
         try:
             yield store, client, rooms

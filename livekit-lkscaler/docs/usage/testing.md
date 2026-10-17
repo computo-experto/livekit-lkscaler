@@ -98,7 +98,7 @@ a real `livekit-agents` worker.
 pins the composition — that the admission handler and the placement value reach `WorkerOptions`
 as `request_fnc` and `load_fnc`, that the tracker counts the SDK's own
 `AgentServer.active_jobs`, and that the value handed to the server is the placement formula
-(`0.0` for the worker whose free slots equal the cluster minimum, `1.0` otherwise). It also
+(`0.0` for the single winning worker — fewest free slots above zero, pod id breaking ties — and `1.0` for every other worker). It also
 pins the two SDK contracts the worker lives under: the entrypoint is pickled into a per-job
 process, and that process builds its own runtime and releases the reservation the parent's
 handler made.
@@ -115,6 +115,11 @@ profile — a production-mode LiveKit server plus three real workers — because
 make test-real-agent-scenarios
 LKSCALER_E2E_BACKENDS=zookeeper make test-real-agent-scenarios
 ```
+
+A namespace is a scaling pool, so the real workers run in their own (`LKSCALER_E2E_REAL_NAMESPACE`,
+default `livekit-lkscaler-real`) rather than sharing the simulators': a pool that contains a pod which
+cannot serve LiveKit dispatch hands the winner slot to a pod the server can never pick. The suite asserts
+the pool holds exactly the workers under test.
 
 It asserts that two dispatched rooms pack onto one worker while the other two stay at zero and
 no worker exceeds `room_target_n + overflow_margin`, and that ending the room returns the slot.

@@ -184,7 +184,8 @@ services:
         LIVEKIT_API_KEY: devkey
         LIVEKIT_API_SECRET: devsecretdevsecretdevsecretdevsecret
         LKSCALER_BACKEND: ${LKSCALER_E2E_BACKEND:-zookeeper}
-        LKSCALER_NAMESPACE: ${LKSCALER_E2E_NAMESPACE:-livekit-lkscaler-e2e}
+        # A namespace is a scaling pool: keep the real workers out of the simulators' pool.
+        LKSCALER_NAMESPACE: ${LKSCALER_E2E_REAL_NAMESPACE:-livekit-lkscaler-real}
         LKSCALER_ZK_HOSTS: zk1:2181,zk2:2181,zk3:2181
         LKSCALER_REDIS_URL: redis://redis:6379/0
         LKSCALER_ROOM_TARGET_N: "2"

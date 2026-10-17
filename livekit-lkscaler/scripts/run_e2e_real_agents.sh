@@ -44,7 +44,8 @@ status=0
 for backend in ${BACKENDS}; do
 	echo "=== real agent e2e: ${backend} ==="
 	export LKSCALER_E2E_BACKEND="${backend}"
-	export LKSCALER_E2E_NAMESPACE="lkscaler-real-${backend}"
+	export LKSCALER_E2E_NAMESPACE="lkscaler-sim-${backend}"
+	export LKSCALER_E2E_REAL_NAMESPACE="lkscaler-real-${backend}"
 	export E2E_STACK_RUNNING=1
 
 	docker compose -f "${COMPOSE_FILE}" "${PROFILES[@]}" down -v --remove-orphans
