@@ -9,6 +9,7 @@ Scope: livekit-lkscaler workspace.
   - `make typecheck`
   - `make test`
 - Full milestone gate: `make milestone-gate`.
+- `make help` lists every target with its description; every target carries a `## <description>` comment and `help` is the default goal, so keep both current when targets change.
 - Unit tests are required for new Java code changes per user preference; this repo is Python, keep same rigor for Python unit coverage.
 - Keep ruff/mypy strictness intact; fix violations rather than relaxing rules.
 - Prefer small, targeted patches over broad refactors.
