@@ -73,6 +73,11 @@ def _registered_pods(store: ClusterStateStore) -> dict[str, PodState] | None:
     return states if all(pod_id in states for pod_id in PODS) else None
 
 
+async def _joined(client: api.LiveKitAPI, room_name: str) -> bool | None:
+    listed = await client.room.list_participants(api.ListParticipantsRequest(room=room_name))
+    return True if listed.participants else None
+
+
 def _running_rooms(store: ClusterStateStore) -> list[str]:
     return [str(record["room_id"]) for record in cast(RoomRegistry, store).read_rooms()]
 
@@ -275,6 +280,13 @@ async def test_deleting_the_room_releases_the_worker_slot(stack: Stack) -> None:
     await _poll(
         lambda: _room_exists(client, "m9-release-1"),
         describe="the dispatched room to exist on the server",
+    )
+
+    # Ending the room before the worker joins cancels its entrypoint, and the cancelled path is
+    # not where the room record is released: wait for the agent to be in the room first.
+    await _poll(
+        lambda: _joined(client, "m9-release-1"),
+        describe="the dispatched agent to join m9-release-1",
     )
 
     await _delete_room(client, "m9-release-1")
