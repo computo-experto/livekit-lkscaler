@@ -24,5 +24,4 @@ ENV LKSCALER_RESERVATION_TTL_SEC=30
 ENV LKSCALER_ZK_SESSION_TIMEOUT_SEC=10
 ENV LKSCALER_SYNC_INTERVAL_MS=250
 
-# Default command - will be overridden per service
-CMD ["python", "-m", "livekit.agents.cli", "start", "--debug"]
+CMD ["/app/.venv/bin/python", "-u", "e2e/fixtures/test_agent.py"]
