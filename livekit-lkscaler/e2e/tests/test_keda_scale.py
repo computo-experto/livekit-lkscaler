@@ -18,13 +18,14 @@ import math
 import os
 import subprocess
 import time
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterator
 from typing import Any
 
 import aiohttp
 import pytest
 import pytest_asyncio
 from livekit import api
+from lkscaler_core.zookeeper import KazooNodeClient, ZooKeeperStateStore
 
 pytestmark = [pytest.mark.e2e, pytest.mark.asyncio]
 
@@ -39,6 +40,10 @@ OVERFLOW_MARGIN = 1
 MIN_FREE_SLOTS = 2
 API_TIMEOUT_SEC = 15.0
 POLL_INTERVAL_SEC = 2.0
+ZK_HOSTS = os.environ.get("LKSCALER_E2E_ZK_HOSTS", "127.0.0.1:2181")
+STORE_NAMESPACE = "livekit-lkscaler"
+# LiveKit drops a job that no registered worker claims, so a dispatch is re-offered at this cadence.
+DISPATCH_ATTEMPT_SEC = 8.0
 
 
 def _require_cluster() -> None:
@@ -108,12 +113,59 @@ async def _async_sleep() -> None:
     await asyncio.sleep(POLL_INTERVAL_SEC)
 
 
+@pytest.fixture(scope="module")
+def store() -> Iterator[ZooKeeperStateStore]:
+    """The same store the workers publish to and the scaler reads."""
+    _require_cluster()
+    zk_client = KazooNodeClient(hosts=[ZK_HOSTS])
+    zk_client.start()
+    try:
+        yield ZooKeeperStateStore(namespace=STORE_NAMESPACE, client=zk_client)
+    finally:
+        zk_client.close()
+
+
+def _used_slots(store: ZooKeeperStateStore) -> int:
+    return sum(
+        state.active_rooms + state.reservations for state in store.read_pod_states().values()
+    )
+
+
 async def _dispatch(client: api.LiveKitAPI, rooms: list[str], room_name: str) -> None:
     await client.room.create_room(api.CreateRoomRequest(name=room_name))
-    rooms.append(room_name)
+    if room_name not in rooms:
+        rooms.append(room_name)
     await client.agent_dispatch.create_dispatch(
         api.CreateAgentDispatchRequest(agent_name=AGENT_NAME, room=room_name)
     )
+
+
+async def _dispatch_until_booked(
+    client: api.LiveKitAPI,
+    store: ZooKeeperStateStore,
+    rooms: list[str],
+    room_name: str,
+    *,
+    timeout: float,
+) -> None:
+    """Offer one room until the worker pool books it, as the placement proof requires.
+
+    The worker registers with LiveKit a moment after its pod turns ready, and LiveKit refuses a
+    dispatch while no worker is registered. Recreating the room clears the dropped dispatch so a
+    retry cannot double-book the slot.
+    """
+    baseline = _used_slots(store)
+    deadline = time.monotonic() + timeout
+    while True:
+        await _dispatch(client, rooms, room_name)
+        attempt_end = min(deadline, time.monotonic() + DISPATCH_ATTEMPT_SEC)
+        while time.monotonic() < attempt_end:
+            if _used_slots(store) > baseline:
+                return
+            await _async_sleep()
+        if time.monotonic() >= deadline:
+            pytest.fail(f"{room_name} was never accepted by the worker pool within {timeout}s")
+        await _release_rooms(client, rooms)
 
 
 async def _release_rooms(client: api.LiveKitAPI, rooms: list[str]) -> None:
@@ -153,6 +205,7 @@ async def client() -> AsyncIterator[tuple[api.LiveKitAPI, list[str]]]:
 
 async def test_keda_scales_the_worker_deployment_up_and_back_down(
     client: tuple[api.LiveKitAPI, list[str]],
+    store: ZooKeeperStateStore,
 ) -> None:
     api_client, rooms = client
 
@@ -163,8 +216,14 @@ async def test_keda_scales_the_worker_deployment_up_and_back_down(
     )
 
     for index in range(1, ROOM_TARGET_N + 1):
-        await _dispatch(api_client, rooms, f"m9-scale-{index}")
+        await _dispatch_until_booked(
+            api_client, store, rooms, f"m9-scale-{index}", timeout=180
+        )
     used_one_worker = ROOM_TARGET_N
+    assert _used_slots(store) == used_one_worker, (
+        f"the pool should hold {used_one_worker} slots before the scale assertion, "
+        f"saw {_used_slots(store)}"
+    )
     await _poll(
         lambda: _ready_replicas() >= _expected_replicas(used_one_worker) or None,
         describe=(
@@ -179,6 +238,11 @@ async def test_keda_scales_the_worker_deployment_up_and_back_down(
     )
 
     await _release_rooms(api_client, rooms)
+    await _poll(
+        lambda: _used_slots(store) == 0 or None,
+        describe="the pool to report no used slots after the rooms are gone",
+        timeout=60,
+    )
     await _poll(
         lambda: _ready_replicas() <= _expected_replicas(0) or None,
         describe=f"replicas to fall back to {_expected_replicas(0)} once the rooms are gone",

@@ -9,6 +9,7 @@ AGENT_IMAGE="lkscaler-e2e-real-agent:local"
 NODE_IMAGE="${NODE_IMAGE:-kindest/node:v1.27.3}"
 KEDA_VERSION="2.10.1"
 LIVEKIT_PORT="17880"
+ZK_PORT="12181"
 ARTIFACT_DIR="e2e/artifacts/keda-scale"
 
 cd "${ROOT_DIR}"
@@ -26,6 +27,7 @@ v0.1?|v0.1?.*) echo "error: kind ${kind_version} cannot boot ${NODE_IMAGE}; inst
 esac
 
 PORT_FORWARD_PID=""
+ZK_FORWARD_PID=""
 
 cleanup() {
 	mkdir -p "${ARTIFACT_DIR}"
@@ -39,6 +41,9 @@ cleanup() {
 	kubectl logs -n "${NAMESPACE}" deployment/livekit >"${ARTIFACT_DIR}/livekit-logs.txt" 2>&1 || true
 	if [ -n "${PORT_FORWARD_PID}" ]; then
 		kill "${PORT_FORWARD_PID}" 2>/dev/null || true
+	fi
+	if [ -n "${ZK_FORWARD_PID}" ]; then
+		kill "${ZK_FORWARD_PID}" 2>/dev/null || true
 	fi
 	kind delete cluster --name "${CLUSTER_NAME}" >/dev/null 2>&1 || true
 }
@@ -93,7 +98,18 @@ kubectl port-forward -n "${NAMESPACE}" svc/livekit "${LIVEKIT_PORT}:7880" >/dev/
 PORT_FORWARD_PID=$!
 wait_for_http "http://127.0.0.1:${LIVEKIT_PORT}/"
 
+# The scenario reads the placement store the scaler reads, so it can tell a booked room from a
+# dispatch LiveKit dropped because no worker had registered yet.
+echo "=== port-forwarding the placement store ==="
+kubectl port-forward -n "${NAMESPACE}" svc/zk "${ZK_PORT}:2181" >/dev/null 2>&1 &
+ZK_FORWARD_PID=$!
+until (exec 3<>"/dev/tcp/127.0.0.1/${ZK_PORT}") 2>/dev/null; do
+	sleep 0.5
+done
+
+# KEDA polls every 5s and stabilizes for 30s, so the scenario owns the deadlines.
 echo "=== running the scale scenario ==="
 export LKSCALER_E2E_SERVER_HTTP="http://127.0.0.1:${LIVEKIT_PORT}"
+export LKSCALER_E2E_ZK_HOSTS="127.0.0.1:${ZK_PORT}"
 export KEDA_SCALE_E2E=1
 uv run pytest e2e/tests/test_keda_scale.py -q
