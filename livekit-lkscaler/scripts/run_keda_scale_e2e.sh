@@ -5,7 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLUSTER_NAME="lkscaler-keda-scale"
 NAMESPACE="livekit-system"
 AGENT_IMAGE="lkscaler-e2e-real-agent:local"
-# The installed kind picks its own node image; pinning one it does not support fails kubeadm.
+# KEDA renders autoscaling/v2 HorizontalPodAutoscalers, which needs Kubernetes 1.23 or newer.
+NODE_IMAGE="${NODE_IMAGE:-kindest/node:v1.27.3}"
 KEDA_VERSION="2.10.1"
 LIVEKIT_PORT="17880"
 ARTIFACT_DIR="e2e/artifacts/keda-scale"
@@ -18,6 +19,11 @@ for cmd in kind kubectl docker uv; do
 		exit 1
 	fi
 done
+
+kind_version="$(kind version | awk '{print $2}')"
+case "${kind_version}" in
+v0.1?|v0.1?.*) echo "error: kind ${kind_version} cannot boot ${NODE_IMAGE}; install kind v0.20 or newer" >&2; exit 1 ;;
+esac
 
 PORT_FORWARD_PID=""
 
@@ -50,11 +56,11 @@ wait_for_http() {
 	return 1
 }
 
-echo "=== creating kind cluster ${CLUSTER_NAME} ==="
+echo "=== creating kind cluster ${CLUSTER_NAME} on ${NODE_IMAGE} (kind ${kind_version}) ==="
 if kind get clusters 2>/dev/null | grep -qx "${CLUSTER_NAME}"; then
 	kind delete cluster --name "${CLUSTER_NAME}"
 fi
-kind create cluster --name "${CLUSTER_NAME}" --wait 180s
+kind create cluster --name "${CLUSTER_NAME}" --image "${NODE_IMAGE}" --wait 180s
 
 echo "=== building and loading the worker image ==="
 docker build -t "${AGENT_IMAGE}" -f e2e/Dockerfile .
