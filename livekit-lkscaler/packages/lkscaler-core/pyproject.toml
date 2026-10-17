@@ -23,9 +23,12 @@ classifiers = [
   "Topic :: System :: Distributed Computing",
 ]
 dependencies = [
-  "kazoo>=2.11.0",
   "pydantic>=2.8.0",
 ]
+
+[project.optional-dependencies]
+zookeeper = ["kazoo>=2.11.0"]
+redis = ["redis>=5.0.0"]
 
 [project.urls]
 Documentation = "https://github.com/computo-experto/livekit-lkscaler/tree/main/livekit-lkscaler/docs/usage"
