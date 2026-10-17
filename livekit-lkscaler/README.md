@@ -29,6 +29,12 @@ uv sync --all-packages --group dev
 
 ## Quality gates
 
+Every target is listed with its purpose:
+
+```bash
+make help
+```
+
 Run per milestone:
 
 ```bash

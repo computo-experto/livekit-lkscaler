@@ -35,6 +35,8 @@ cd livekit-lkscaler
 uv sync --all-packages --group dev
 ```
 
+Every target is listed with its purpose: `make help`.
+
 Common quality commands:
 
 ```bash
