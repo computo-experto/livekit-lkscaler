@@ -37,8 +37,9 @@ def _fixture() -> Any:
 
 
 class StubServer:
-    def __init__(self, active_jobs: int = 0) -> None:
-        self.active_jobs = [object() for _ in range(active_jobs)]
+    def __init__(self, active_jobs: int = 0, job_ids: tuple[str, ...] | None = None) -> None:
+        ids = job_ids if job_ids is not None else tuple(f"job-{i}" for i in range(active_jobs))
+        self.active_jobs = [SimpleNamespace(job=SimpleNamespace(id=job_id)) for job_id in ids]
 
 
 class StubJobContext:
@@ -99,6 +100,26 @@ def test_reservations_made_through_the_notifying_store_count_as_occupied() -> No
     store.delete(pod_id="real-agent-1", job_id="job-1")
 
     assert tracker.get_local_occupancy().reservations == 0
+
+
+def test_a_running_job_is_not_counted_as_its_own_reservation() -> None:
+    """The handler reserves, then the job starts; a started job is a room, not a claim."""
+    fixture = _fixture()
+    inner = InMemoryReservationStore()
+    tracker = fixture.WorkerTracker(store=inner, cluster_store=None, pod_id=_POD_ID)
+    store = fixture.NotifyingReservationStore(inner=inner, tracker=tracker)
+    now = datetime.now(UTC)
+
+    assert store.create(_record("job-run", now=now)) is True
+    assert tracker.get_local_occupancy().reservations == 1
+
+    tracker.attach(StubServer(active_jobs=1, job_ids=("job-run",)))
+
+    occupancy = tracker.get_local_occupancy()
+
+    assert occupancy.active_rooms == 1
+    assert occupancy.reservations == 0
+    assert occupancy.free_slots(room_target_n=2) == 1
 
 
 def test_cluster_view_comes_from_the_backend_store() -> None:
@@ -170,7 +191,8 @@ def test_publish_reports_free_slots_from_occupancy() -> None:
     backend = (InMemoryReservationStore(), cluster, None)
     _, tracker, _, _ = fixture.build_worker(backend=backend)
     tracker.attach(StubServer(active_jobs=2))
-    tracker.note_reservation("job-1", _record("job-1", now=datetime.now(UTC)))
+    # A claim for a job the server is not running yet: only those count as reservations.
+    tracker.note_reservation("job-pending", _record("job-pending", now=datetime.now(UTC)))
 
     fixture.publish(fixture._ensure_runtime())
 

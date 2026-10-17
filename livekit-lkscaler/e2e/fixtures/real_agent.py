@@ -98,10 +98,27 @@ class WorkerTracker:
             if record.is_expired(now=moment):
                 del self._pending[job_id]
 
+    def _running_job_ids(self) -> set[str]:
+        """Ids of the jobs the SDK server is running, when the SDK exposes them."""
+        if self._server is None:
+            return set()
+        job_ids: set[str] = set()
+        for running in self._server.active_jobs:
+            job_id = getattr(getattr(running, "job", None), "id", None)
+            if job_id:
+                job_ids.add(str(job_id))
+        return job_ids
+
     def get_local_occupancy(self) -> PodOccupancy:
         active = len(self._server.active_jobs) if self._server is not None else 0
+        running = self._running_job_ids()
         with self._lock:
             self._prune_locked()
+            # A job the server is already running is a room, not a claim: counting its own
+            # reservation too publishes free = capacity - 2 for one running job, so a worker
+            # holding one of two slots announces itself full and loses the winner slot.
+            for job_id in running:
+                self._pending.pop(job_id, None)
             return PodOccupancy(active_rooms=active, reservations=len(self._pending))
 
     def get_cluster_free_slots(self) -> dict[str, int]:
