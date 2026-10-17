@@ -166,7 +166,7 @@ client.start()
 store = ZooKeeperStateStore(namespace="livekit-lkscaler", client=client)
 ```
 
-`ZooKeeperStateStore` satisfies the reservation, expiry, and cluster-state contracts, so it drops straight into `build_on_request_handler` and `build_load_fnc`. A Redis backend is next, and a Kubernetes/KEDA-native backend (no external store at all) is in design. See [Coordination backends](https://github.com/computo-experto/livekit-lkscaler/blob/main/livekit-lkscaler/docs/usage/coordination.md) for the node layout, cleanup, and backend trade-offs.
+`ZooKeeperStateStore` and `RedisStateStore` satisfy the reservation, expiry, and cluster-state contracts, so either drops straight into `build_on_request_handler` and `build_load_fnc`. See [Coordination backends](https://github.com/computo-experto/livekit-lkscaler/blob/main/livekit-lkscaler/docs/usage/coordination.md) for key layouts, cleanup, and backend trade-offs.
 
 Any other store works too, as long as it keeps the contract:
 
@@ -180,7 +180,7 @@ Any other store works too, as long as it keeps the contract:
 
 - It assumes no autoscaler. KEDA is optional and lives in a separate package.
 - `BinpackConfig.zk_session_timeout_sec`, `BinpackConfig.sync_interval_ms`, and `BinpackConfig.fail_mode` are declarations for your coordination layer; the placement helpers do not read them.
-- The base install has no network dependency at all: kazoo arrives only with the `zookeeper` extra, and Redis will arrive with its own extra. No background threads beyond the store and cache locks, no LiveKit dependency.
+- The base install has no network dependency at all: kazoo arrives only with the `zookeeper` extra and redis-py only with the `redis` extra. No background threads beyond the store and cache locks, no LiveKit dependency.
 
 ## Links
 
