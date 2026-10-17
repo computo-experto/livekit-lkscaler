@@ -132,6 +132,22 @@ Before the second dispatch it waits until every worker has *reported* a load tha
 server a single candidate: each worker serves what it last told the server, so the wait is on
 the server's view rather than on propagation timing.
 
+#### `test_keda_scale.py` (kind)
+
+The suite that proves the scaling half: a kind cluster with ZooKeeper, a production-mode LiveKit server, one
+real agent Deployment and the external scaler from `packages/lkscaler-keda`, wired together by a `ScaledObject`.
+
+```bash
+make test-keda-scale-e2e
+scripts/run_keda_scale_e2e.sh
+```
+
+It asserts replicas sit at the floor while the pool is idle, rise to `ceil((used_slots + minFreeSlots) /
+(roomTargetN + overflowMargin))` once rooms are dispatched, and fall back after those rooms are deleted. The
+stabilization window lives in the ScaledObject, not in the scaler. Requires `kind`, `kubectl`, `docker` and
+`uv`; the runner builds the worker image, installs KEDA, port-forwards the LiveKit API and captures artifacts
+under `e2e/artifacts/keda-scale/`.
+
 #### `test_proof_gate_artifacts.py`
 Validates compose artifacts (output from `docker compose ps` and logs) meet quantitative thresholds.
 

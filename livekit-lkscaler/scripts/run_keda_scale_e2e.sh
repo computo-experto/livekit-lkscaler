@@ -5,8 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLUSTER_NAME="lkscaler-keda-scale"
 NAMESPACE="livekit-system"
 AGENT_IMAGE="lkscaler-e2e-real-agent:local"
-KEDA_VERSION="2.14.0"
-KIND_NODE_IMAGE="kindest/node:v1.27.3"
+# The installed kind picks its own node image; pinning one it does not support fails kubeadm.
+KEDA_VERSION="2.10.1"
 LIVEKIT_PORT="17880"
 ARTIFACT_DIR="e2e/artifacts/keda-scale"
 
@@ -54,7 +54,7 @@ echo "=== creating kind cluster ${CLUSTER_NAME} ==="
 if kind get clusters 2>/dev/null | grep -qx "${CLUSTER_NAME}"; then
 	kind delete cluster --name "${CLUSTER_NAME}"
 fi
-kind create cluster --name "${CLUSTER_NAME}" --image "${KIND_NODE_IMAGE}" --wait 180s
+kind create cluster --name "${CLUSTER_NAME}" --wait 180s
 
 echo "=== building and loading the worker image ==="
 docker build -t "${AGENT_IMAGE}" -f e2e/Dockerfile .
@@ -63,7 +63,8 @@ kind load docker-image --name "${CLUSTER_NAME}" "${AGENT_IMAGE}"
 echo "=== installing KEDA ${KEDA_VERSION} ==="
 kubectl apply -f "https://github.com/kedacore/keda/releases/download/v${KEDA_VERSION}/keda-${KEDA_VERSION}.yaml"
 kubectl rollout status deployment/keda-operator -n keda --timeout=240s
-kubectl rollout status deployment/keda-operator-metrics-apiserver -n keda --timeout=240s
+kubectl rollout status deployment/keda-metrics-apiserver -n keda --timeout=240s
+kubectl version --output=yaml >"${ARTIFACT_DIR}/kubectl-version.yaml" 2>&1 || true
 
 echo "=== applying the fixture stack ==="
 kubectl apply -f e2e/kind/namespace.yaml
