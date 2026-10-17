@@ -145,8 +145,13 @@ scripts/run_keda_scale_e2e.sh
 It asserts replicas sit at the floor while the pool is idle, rise to `ceil((used_slots + minFreeSlots) /
 (roomTargetN + overflowMargin))` once rooms are dispatched, and fall back after those rooms are deleted. The
 stabilization window lives in the ScaledObject, not in the scaler. Requires `kind`, `kubectl`, `docker` and
-`uv`; the runner builds the worker image, installs KEDA, port-forwards the LiveKit API and captures artifacts
-under `e2e/artifacts/keda-scale/`.
+`uv`; the runner builds the worker image, installs KEDA, port-forwards the LiveKit API and the placement store,
+and captures artifacts under `e2e/artifacts/keda-scale/`.
+
+A dispatch is only issued once the pool books it: a worker registers with LiveKit a moment after its pod turns
+ready, and LiveKit drops a job that no registered worker claims, so the scenario re-offers the room until the
+store reports the slot as used. Without that gate the deployment legitimately never scales, because nothing was
+accepted.
 
 #### `test_proof_gate_artifacts.py`
 Validates compose artifacts (output from `docker compose ps` and logs) meet quantitative thresholds.
