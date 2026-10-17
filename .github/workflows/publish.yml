@@ -1,8 +1,6 @@
 name: Publish
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       environment:
@@ -11,7 +9,10 @@ on:
         type: choice
         options:
           - testpypi
-          - promote
+          - both
+  push:
+    tags:
+      - "release-v*"
 
 permissions:
   id-token: write
@@ -32,10 +33,10 @@ jobs:
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             target_input="${{ inputs.environment }}"
           else
-            target_input="promote"
+            target_input="both"
           fi
 
-          if [[ "${target_input}" != "testpypi" && "${target_input}" != "promote" ]]; then
+          if [[ "${target_input}" != "testpypi" && "${target_input}" != "both" ]]; then
             echo "Unsupported publish target: ${target_input}" >&2
             exit 1
           fi
@@ -83,6 +84,28 @@ jobs:
           echo "core_version=${core_version}" >> "$GITHUB_OUTPUT"
           echo "livekit_version=${livekit_version}" >> "$GITHUB_OUTPUT"
 
+      - name: Enforce matching release versions
+        shell: bash
+        working-directory: livekit-lkscaler
+        run: |
+          core_version="${{ steps.versions.outputs.core_version }}"
+          livekit_version="${{ steps.versions.outputs.livekit_version }}"
+          if [[ "${core_version}" != "${livekit_version}" ]]; then
+            echo "error: lkscaler-core (${core_version}) and livekit-lkscaler (${livekit_version}) must share one release version" >&2
+            exit 1
+          fi
+
+      - name: Validate release tag against package versions
+        if: github.event_name == 'push'
+        shell: bash
+        working-directory: livekit-lkscaler
+        run: |
+          expected="release-v${{ steps.versions.outputs.core_version }}"
+          if [[ "${GITHUB_REF_NAME}" != "${expected}" ]]; then
+            echo "error: tag ${GITHUB_REF_NAME} does not match package version ${expected}" >&2
+            exit 1
+          fi
+
       - name: Build both packages
         working-directory: livekit-lkscaler
         run: |
@@ -108,6 +131,20 @@ jobs:
           cp dist/core/* dist/all/
           cp dist/livekit/* dist/all/
 
+      - name: Verify both distributions are in the payload
+        shell: bash
+        working-directory: livekit-lkscaler
+        run: |
+          for dist in lkscaler_core livekit_lkscaler; do
+            wheels=(dist/all/${dist}-*.whl)
+            sdists=(dist/all/${dist}-*.tar.gz)
+            if [[ ! -f "${wheels[0]}" || ! -f "${sdists[0]}" ]]; then
+              echo "error: missing wheel or sdist for ${dist} in dist/all" >&2
+              ls -l dist/all >&2
+              exit 1
+            fi
+          done
+
       - name: Upload dist artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -116,7 +153,7 @@ jobs:
 
   publish-testpypi:
     needs: [build-and-verify]
-    if: ${{ needs.build-and-verify.outputs.publish_target == 'testpypi' || needs.build-and-verify.outputs.publish_target == 'promote' }}
+    if: ${{ needs.build-and-verify.outputs.publish_target == 'testpypi' || needs.build-and-verify.outputs.publish_target == 'both' }}
     runs-on: ubuntu-latest
     environment: testpypi
     permissions:
@@ -129,7 +166,7 @@ jobs:
           name: dist-all
           path: dist
 
-      - name: Publish to TestPyPI
+      - name: Publish both packages to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
@@ -138,7 +175,7 @@ jobs:
 
   gate-testpypi-install:
     needs: [build-and-verify, publish-testpypi]
-    if: ${{ needs.build-and-verify.outputs.publish_target == 'testpypi' || needs.build-and-verify.outputs.publish_target == 'promote' }}
+    if: ${{ needs.build-and-verify.outputs.publish_target == 'testpypi' || needs.build-and-verify.outputs.publish_target == 'both' }}
     runs-on: ubuntu-latest
     steps:
       - name: Set up Python
@@ -146,7 +183,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Validate install from TestPyPI
+      - name: Validate install of both packages from TestPyPI
         shell: bash
         run: |
           python -m venv .venv-testpypi-gate
@@ -165,7 +202,7 @@ jobs:
 
   publish-pypi:
     needs: [build-and-verify, gate-testpypi-install]
-    if: ${{ needs.build-and-verify.outputs.publish_target == 'promote' && needs.gate-testpypi-install.result == 'success' }}
+    if: ${{ needs.build-and-verify.outputs.publish_target == 'both' && needs.gate-testpypi-install.result == 'success' }}
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -178,7 +215,19 @@ jobs:
           name: dist-all
           path: dist
 
-      - name: Publish to PyPI
+      - name: Split payload by package
+        shell: bash
+        run: |
+          mkdir -p dist/core dist/livekit
+          for file in dist/lkscaler_core-*; do mv "${file}" dist/core/; done
+          for file in dist/livekit_lkscaler-*; do mv "${file}" dist/livekit/; done
+
+      - name: Publish lkscaler-core to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: dist
+          packages-dir: dist/core
+
+      - name: Publish livekit-lkscaler to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/livekit

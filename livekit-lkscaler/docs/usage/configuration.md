@@ -11,9 +11,11 @@ For a consumer-oriented explanation of which settings matter and how to start, s
 - `room_target_n` (`int`, `>= 1`): target concurrent rooms per pod.
 - `overflow_margin` (`int`, `>= 0`): extra slots tolerated during race windows.
 - `reservation_ttl_sec` (`int`, `> 0`): reservation timeout managed by parent process.
-- `zk_session_timeout_sec` (`int`, `> 0`): ZooKeeper session timeout.
-- `sync_interval_ms` (`int`, `> 0`): periodic cluster snapshot refresh interval.
-- `fail_mode` (`Literal["accept_if_local_below_n"]`): fallback strategy when cluster state is unavailable.
+- `zk_session_timeout_sec` (`int`, `> 0`): session timeout for the coordination backend you implement (not read by the shipped helpers).
+- `sync_interval_ms` (`int`, `> 0`): intended cluster snapshot refresh interval (not read by the shipped helpers).
+- `fail_mode` (`Literal["accept_if_local_below_n"]`): intended fallback strategy when cluster state is unavailable (not read by the shipped helpers).
+
+The last three fields document the coordination layer you supply. Nothing in `lkscaler-core` or `livekit-lkscaler` reads them today, so treat them as configuration for your tracker/store, not as switches that change library behavior.
 
 ## Recommended starting values
 

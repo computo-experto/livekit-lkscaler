@@ -8,11 +8,13 @@ It focuses on what you need to run the library in production: prerequisites, int
 Before integrating the library, make sure you have:
 
 - A working LiveKit Agent worker application.
-- A reachable ZooKeeper ensemble or service.
+- A shared store for reservations and cluster occupancy, so workers can see each other's slots. ZooKeeper is the designed backend; any service you already run works if it satisfies the store contract. The store that ships today is in-memory and single-process, so a real fleet needs your own implementation.
 - A unique `pod_id` for each worker instance.
 - A cluster namespace shared by the workers that should participate in the same scaling pool.
 
-ZooKeeper is required for shared reservation and cluster-state coordination. If ZooKeeper is unavailable, the library falls back to its configured fail behavior.
+No autoscaler is required: the placement path only needs the two hooks below, and the `load_fnc` value is what a replica manager reacts to. KEDA is optional and lives in a separate package.
+
+Shared reservation and cluster-state coordination run through the store you provide. If that store is unavailable, the library itself applies no fallback; your tracker decides what a worker should report and accept.
 
 ## Install
 
@@ -78,8 +80,8 @@ The key settings are:
 - `room_target_n`: expected safe room concurrency per worker.
 - `overflow_margin`: small buffer for race windows during admission.
 - `reservation_ttl_sec`: how long reservations remain valid.
-- `zk_session_timeout_sec`: ZooKeeper session timeout used by the coordination layer.
-- `sync_interval_ms`: how often cluster state should be refreshed.
+- `zk_session_timeout_sec`: session timeout for the coordination layer you implement.
+- `sync_interval_ms`: how often you refresh cluster state.
 - `fail_mode`: fallback admission behavior when cluster coordination is not available.
 
 Recommended starting values:

@@ -4,7 +4,7 @@ This guide defines the real-world integration proof gate required before PyPI pu
 
 ## Scenario matrix
 
-The gate targets these scenarios:
+The gate targets these scenarios. Scenarios 1-3 are asserted today by the compose-backed tests; scenarios 4 and 5 are still planned, not enforced:
 
 1. Steady load placement trend.
 2. Burst load with bounded overflow.
@@ -36,8 +36,14 @@ Future expansions (planned):
 
 - Soak test with repeated churn.
 - Fault injection and bounded-safety assertions from artifacts.
+- ZooKeeper disconnect and reconnect convergence: no worker connects to ZooKeeper today, so the scenario cannot be exercised yet.
+- Parent/job restart reconciliation: the E2E agents are long-running simulators, not real job processes.
 - Real dispatch lifecycle telemetry assertions (when non-placeholder agents are integrated).
 
 ## Release policy link
 
-PyPI publish remains blocked until this proof gate and scenario matrix are marked complete.
+The proof gate is the documented real-world integration gate for this project, but it is not yet enforced by
+workflow automation: the Publish workflow does not run `make proof-gate`, and the soak, fault-injection, and
+real-agent telemetry scenarios above are still planned (Milestone 9 in progress). Until the gate is wired
+into the workflow, publishing both packages is an explicit owner decision that must not be described as
+proof-gated.

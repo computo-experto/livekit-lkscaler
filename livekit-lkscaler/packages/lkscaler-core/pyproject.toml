@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lkscaler-core"
-version = "0.1.0"
-description = "Core bin-packing and ZooKeeper state logic for LKScaler"
+version = "0.2.0"
+description = "Bin-pack LiveKit agent jobs onto fewer workers so idle capacity can be scaled down sooner"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
@@ -28,9 +28,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jmedina/lkscaler"
-Repository = "https://github.com/jmedina/lkscaler"
-Issues = "https://github.com/jmedina/lkscaler/issues"
+Documentation = "https://github.com/computo-experto/livekit-lkscaler/tree/main/livekit-lkscaler/docs/usage"
+Homepage = "https://github.com/computo-experto/livekit-lkscaler"
+Repository = "https://github.com/computo-experto/livekit-lkscaler"
+Issues = "https://github.com/computo-experto/livekit-lkscaler/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lkscaler_core"]

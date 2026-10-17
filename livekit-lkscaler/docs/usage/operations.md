@@ -12,8 +12,9 @@ For library setup and configuration, see [Library User Guide](library-users.md).
 
 ## Known failure modes
 
-- ZooKeeper unavailable:
-	- fallback policy: accept only when local occupancy is below `room_target_n`.
+- Coordination store unavailable:
+	- the shipped helpers implement no fallback; your tracker decides what the worker reports and accepts.
+	- `fail_mode` records the intended policy (`accept_if_local_below_n`) but nothing reads it yet.
 - Stale reservations:
 	- bounded by `reservation_ttl_sec` and timeout cleanup.
 - Slow convergence:
