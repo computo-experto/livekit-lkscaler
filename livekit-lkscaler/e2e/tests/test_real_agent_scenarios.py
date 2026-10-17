@@ -17,6 +17,7 @@ import inspect
 import os
 import time
 from collections.abc import AsyncIterator, Callable
+from functools import partial
 from typing import Any
 
 import aiohttp
@@ -80,10 +81,23 @@ def _held(store: ClusterStateStore, pod_id: str) -> int:
     return state.active_rooms + state.reservations
 
 
+def _rooms_at(store: ClusterStateStore, pod_id: str, count: int) -> bool | None:
+    """True once `pod_id` reports exactly `count` rooms."""
+    return True if _rooms(store, pod_id) == count else None
+
+
 def _all_idle(store: ClusterStateStore) -> bool | None:
     """True once no worker holds a room, so a scenario starts from a settled fleet."""
     states = _states(store)
     return True if not any(state.active_rooms for state in states.values()) else None
+
+
+async def _delete_stray_rooms(client: api.LiveKitAPI) -> None:
+    """Delete rooms this suite created that an earlier scenario left behind."""
+    listed = await client.room.list_rooms(api.ListRoomsRequest())
+    for room in listed.rooms:
+        if room.name.startswith("m9-"):
+            await _delete_room(client, room.name)
 
 
 def _lone_holder(store: ClusterStateStore, *, expects_rooms: int) -> str | None:
@@ -172,9 +186,10 @@ async def stack() -> AsyncIterator[Stack]:
         assert pool == sorted(PODS), (
             f"the real workers must be alone in their scaling pool, found {pool}"
         )
-        # Room deletion ends a job asynchronously, so a scenario that starts while the
-        # previous one is still draining sees two holders and never a lone one. Wait for
-        # the pool to settle on the backend's own state instead of on a clock.
+        # A room the server offered to a worker that declined it waits for that worker, so a
+        # room left behind by an earlier scenario keeps blocking dispatch. Clear the namespace
+        # first: a scenario must start from a clean server and an idle backend.
+        await _delete_stray_rooms(client)
         await _poll(
             lambda: _all_idle(store),
             describe="the pool to be idle before the scenario dispatches",
@@ -245,3 +260,27 @@ async def test_deleting_the_room_releases_the_worker_slot(stack: Stack) -> None:
         lambda: _rooms(store, holder) == 0 or None,
         describe=f"{holder} to release the slot once the room ends",
     )
+
+
+async def test_steady_dispatch_packs_one_worker_to_its_target(stack: Stack) -> None:
+    store, client, rooms = stack
+
+    await _dispatch(client, rooms, "m9-steady-1")
+    first = await _poll(
+        lambda: _lone_holder(store, expects_rooms=1),
+        describe="a real worker to accept the first room of a steady stream",
+    )
+
+    for index in range(2, ROOM_TARGET_N + 1):
+        await _dispatch(client, rooms, f"m9-steady-{index}")
+        await _poll(
+            partial(_rooms_at, store, first, index),
+            describe=f"{first} to accept room {index} of the steady stream",
+        )
+
+    assert _rooms(store, first) == ROOM_TARGET_N
+    for pod_id in PODS:
+        if pod_id != first:
+            assert _rooms(store, pod_id) == 0, (
+                f"{pod_id} took a steady room while {first} still had capacity"
+            )

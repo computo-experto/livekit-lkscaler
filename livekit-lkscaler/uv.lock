@@ -12,6 +12,7 @@ members = [
     "livekit-lkscaler",
     "lkscaler-core",
     "lkscaler-e2e",
+    "lkscaler-keda",
     "lkscaler-workspace",
 ]
 
@@ -1084,6 +1085,34 @@ requires-dist = [
     { name = "pytest", specifier = ">=8.2.0" },
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
 ]
+
+[[package]]
+name = "lkscaler-keda"
+version = "0.1.0"
+source = { editable = "packages/lkscaler-keda" }
+dependencies = [
+    { name = "grpcio" },
+    { name = "lkscaler-core" },
+    { name = "protobuf" },
+]
+
+[package.optional-dependencies]
+redis = [
+    { name = "redis" },
+]
+zookeeper = [
+    { name = "kazoo" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "grpcio", specifier = ">=1.60.0" },
+    { name = "kazoo", marker = "extra == 'zookeeper'", specifier = ">=2.11.0" },
+    { name = "lkscaler-core", editable = "packages/lkscaler-core" },
+    { name = "protobuf", specifier = ">=4.25.0" },
+    { name = "redis", marker = "extra == 'redis'", specifier = ">=5.0.0" },
+]
+provides-extras = ["zookeeper", "redis"]
 
 [[package]]
 name = "lkscaler-workspace"

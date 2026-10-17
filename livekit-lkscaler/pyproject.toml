@@ -9,6 +9,7 @@ requires-python = ">=3.12"
 members = [
   "packages/lkscaler-core",
   "packages/lkscaler-livekit",
+  "packages/lkscaler-keda",
   "e2e",
 ]
 
@@ -24,6 +25,7 @@ dev = [
 
 [tool.ruff]
 line-length = 100
+extend-exclude = ["packages/lkscaler-keda/src/lkscaler_keda/proto"]
 target-version = "py312"
 
 [tool.ruff.lint]
@@ -40,12 +42,17 @@ markers = [
 testpaths = [
   "packages/lkscaler-core/tests",
   "packages/lkscaler-livekit/tests",
+  "packages/lkscaler-keda/tests",
   "e2e/tests",
 ]
+
+[[tool.mypy.overrides]]
+module = "lkscaler_keda.proto.*"
+ignore_errors = true
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
 warn_unused_configs = true
-packages = ["lkscaler_core", "lkscaler_livekit"]
+packages = ["lkscaler_core", "lkscaler_livekit", "lkscaler_keda"]

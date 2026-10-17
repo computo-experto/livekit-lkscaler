@@ -20,6 +20,30 @@ For library setup and configuration, see [Library User Guide](library-users.md).
 - Slow convergence:
 	- tune `sync_interval_ms` and validate watcher health.
 
+## Capacity, bursts, and scale policy
+
+How much spare capacity to carry is your decision, not the library's: a dispatching burst is absorbed only by
+workers that exist and are still admitting, so size the fleet for the burst pattern you actually expect and
+let the scale policy provision it ahead of time.
+
+Measured on a 3-worker pool configured with `room_target_n=2` and `overflow_margin=1` (nine slots in total),
+against a burst of five dispatched rooms:
+
+- the pool accepted three rooms, filling one worker to its hard bound;
+- the two remaining rooms stayed queued for the whole 30-second sample, even though a second worker was
+  advertising itself available;
+- the worker already at its bound received all ten of the server's dispatch attempts, the idle worker none.
+
+So a room offered to a worker which then declines it (the admission handler rejects so the room is not
+terminated) waits for that worker rather than moving to an idle peer. Plan headroom for bursts and treat
+scale-up latency as a capacity budget; per-room redistribution during a burst is not something to rely on.
+
+Express that headroom as a number of slots. A fixed slot count is the simplest policy to reason about and
+the one most fleets want: `min_free_slots = 8` means "keep eight rooms' worth of admission capacity ready",
+however many workers that takes. A percentage of configured capacity tracks growth automatically, but it
+moves the target every time the fleet resizes, which is harder to explain mid-incident. Set the number and
+let the scale policy hold it.
+
 ## Local runbooks
 
 On E2E failure, inspect:
