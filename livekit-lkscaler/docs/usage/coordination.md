@@ -9,8 +9,7 @@ backend you run.
 
 | Contract | Methods | Purpose |
 | --- | --- | --- |
-| `ReservationStore` | `create`, `delete`, `get` | Claim a slot before accepting a job. `create` returns `False` when the reservation already exists, so the losing worker backs off. |
-| `ExpiringReservationStore` | the above plus `remove_expired(now=...)` | Drop reservations whose TTL has passed. |
+| `ReservationStore` | `create`, `delete`, `get`, `remove_expired` | Claim a slot before accepting a job. `create` returns `False` when the reservation already exists, so the losing worker backs off. `remove_expired(now=...)` drops records whose TTL has passed. |
 | `ClusterStateStore` | `publish_pod_state`, `read_pod_states`, `free_slots_by_pod` | Publish this worker's occupancy and read the cluster's. |
 
 `create` must be atomic: two workers racing for the same `(pod_id, job_id)` must not both
@@ -49,7 +48,7 @@ client.start()
 store = ZooKeeperStateStore(namespace="livekit-lkscaler", client=client)
 ```
 
-`store` satisfies `ReservationStore`, `ExpiringReservationStore`, and `ClusterStateStore`,
+`store` satisfies `ReservationStore` (TTL cleanup included) and `ClusterStateStore`,
 so it can be handed straight to `build_on_request_handler` and `build_load_fnc`:
 
 ```python

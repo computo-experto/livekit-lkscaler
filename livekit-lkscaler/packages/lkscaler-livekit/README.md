@@ -124,5 +124,6 @@ The `tracker` is the part you own. It has to answer two questions:
 
 - Placement primitives and coordination contract: [`lkscaler-core`](https://pypi.org/project/lkscaler-core/)
 - KEDA autoscaling companion: `lkscaler-keda` (same repository)
+- License: Apache-2.0 (`LICENSE` ships with every release)
 - Source, design specs, and usage guides: <https://github.com/computo-experto/livekit-lkscaler>
 - Changelog: <https://github.com/computo-experto/livekit-lkscaler/blob/main/livekit-lkscaler/CHANGELOG.md>

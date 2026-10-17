@@ -162,9 +162,11 @@ pip install "lkscaler-core[zookeeper]"
 from lkscaler_core.zookeeper import KazooNodeClient, ZooKeeperStateStore
 
 client = KazooNodeClient(hosts=["zk-0.zk:2181", "zk-1.zk:2181"], session_timeout_sec=10)
-client.start()
 store = ZooKeeperStateStore(namespace="livekit-lkscaler", client=client)
 ```
+
+Constructing either one opens nothing: `client.start()` opens the session before first use, and
+`client.close()` releases it — which is what drops this worker's ephemeral nodes when it shuts down.
 
 `ZooKeeperStateStore` and `RedisStateStore` satisfy the reservation, expiry, and cluster-state contracts, so either drops straight into `build_on_request_handler` and `build_load_fnc`. See [Coordination backends](https://github.com/computo-experto/livekit-lkscaler/blob/main/livekit-lkscaler/docs/usage/coordination.md) for key layouts, cleanup, and backend trade-offs.
 
@@ -185,5 +187,6 @@ Any other store works too, as long as it keeps the contract:
 ## Links
 
 - KEDA autoscaling companion: `lkscaler-keda` (same repository)
+- License: Apache-2.0 (`LICENSE` ships with every release)
 - Source, design specs, and usage guides: <https://github.com/computo-experto/livekit-lkscaler>
 - Changelog: <https://github.com/computo-experto/livekit-lkscaler/blob/main/livekit-lkscaler/CHANGELOG.md>

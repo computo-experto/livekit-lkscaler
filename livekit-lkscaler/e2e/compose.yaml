@@ -95,3 +95,64 @@ services:
         condition: service_healthy
       zk1:
         condition: service_healthy
+  redis:
+    profiles: [backends]
+    image: redis:7
+    hostname: redis
+    ports:
+      - "16379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  packed-agent1:
+    profiles: [backends]
+    build:
+      context: ..
+      dockerfile: e2e/Dockerfile
+    command: ["/app/.venv/bin/python", "-u", "e2e/fixtures/packed_agent.py"]
+    environment:
+      LKSCALER_BACKEND: ${LKSCALER_E2E_BACKEND:-zookeeper}
+      LKSCALER_NAMESPACE: ${LKSCALER_E2E_NAMESPACE:-livekit-lkscaler-e2e}
+      LKSCALER_POD_ID: packed-agent1
+      LKSCALER_ZK_HOSTS: zk1:2181,zk2:2181,zk3:2181
+      LKSCALER_REDIS_URL: redis://redis:6379/0
+      LKSCALER_ROOM_TARGET_N: "2"
+      LKSCALER_OVERFLOW_MARGIN: "1"
+      LKSCALER_RESERVATION_TTL_SEC: "5"
+      LKSCALER_POD_STATE_TTL_SEC: "5"
+      LKSCALER_ZK_SESSION_TIMEOUT_SEC: "5"
+      LKSCALER_SYNC_INTERVAL_MS: "250"
+    ports:
+      - "18090:8090"
+    depends_on:
+      zk1:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  packed-agent2:
+    profiles: [backends]
+    build:
+      context: ..
+      dockerfile: e2e/Dockerfile
+    command: ["/app/.venv/bin/python", "-u", "e2e/fixtures/packed_agent.py"]
+    environment:
+      LKSCALER_BACKEND: ${LKSCALER_E2E_BACKEND:-zookeeper}
+      LKSCALER_NAMESPACE: ${LKSCALER_E2E_NAMESPACE:-livekit-lkscaler-e2e}
+      LKSCALER_POD_ID: packed-agent2
+      LKSCALER_ZK_HOSTS: zk1:2181,zk2:2181,zk3:2181
+      LKSCALER_REDIS_URL: redis://redis:6379/0
+      LKSCALER_ROOM_TARGET_N: "2"
+      LKSCALER_OVERFLOW_MARGIN: "1"
+      LKSCALER_RESERVATION_TTL_SEC: "5"
+      LKSCALER_POD_STATE_TTL_SEC: "5"
+      LKSCALER_ZK_SESSION_TIMEOUT_SEC: "5"
+      LKSCALER_SYNC_INTERVAL_MS: "250"
+    ports:
+      - "18091:8090"
+    depends_on:
+      zk1:
+        condition: service_healthy
+      redis:
+        condition: service_healthy

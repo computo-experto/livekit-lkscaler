@@ -1,0 +1,14 @@
+.git
+.gitignore
+.venv
+.venv*
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+dist
+.smoke-dist
+e2e/artifacts

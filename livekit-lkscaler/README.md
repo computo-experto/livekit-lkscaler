@@ -69,6 +69,10 @@ The repository now includes a KEDA integration package that:
 - biases scale-down toward idle pods using pod deletion cost
 - validates the scaling path in kind with a lightweight agent simulator
 
+## License
+
+Apache-2.0 — see `LICENSE` and `NOTICE` in the repository root.
+
 ## Publishing
 
 Publishing is handled by `.github/workflows/publish.yml` via OIDC trusted publishing. One run publishes
