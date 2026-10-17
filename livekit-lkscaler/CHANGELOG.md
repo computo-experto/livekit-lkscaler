@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-17
+
+`lkscaler-core`, `livekit-lkscaler` and `lkscaler-keda` ship at one version with
+`Development Status :: 5 - Production/Stable`. The real-agent placement scenarios and the KEDA scale proof are
+release-blocking: `make proof-gate` runs them, and the Publish workflow refuses to publish when it fails. The
+failure cases that are deliberately out of scope for this gate - burst absorption, backend outage, soak churn,
+fault injection and restart reconciliation - are recorded with their reasoning in `docs/usage/proof-gate.md`.
+
 ### Added
 
 - `lkscaler-keda` is part of the released product again: a KEDA external scaler that turns the placement

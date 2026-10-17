@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "livekit-lkscaler"
-version = "0.2.0"
+version = "1.0.0"
 description = "LiveKit agent hooks that bin-pack jobs so self-hosted fleets scale down sooner"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -15,7 +15,7 @@ authors = [
 ]
 keywords = ["livekit", "agents", "zookeeper", "binpack", "scaling"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
@@ -23,7 +23,7 @@ classifiers = [
   "Topic :: System :: Distributed Computing",
 ]
 dependencies = [
-  "lkscaler-core>=0.1.0",
+  "lkscaler-core>=1.0.0",
   "livekit-agents>=1.6.2",
 ]
 
