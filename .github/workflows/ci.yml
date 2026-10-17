@@ -52,6 +52,9 @@ jobs:
       - name: Integration tests
         run: make test-integration
 
+      - name: ZooKeeper backend integration tests
+        run: make test-integration-zookeeper
+
       - name: Coverage gate (unit + integration)
         run: make test-coverage
 
