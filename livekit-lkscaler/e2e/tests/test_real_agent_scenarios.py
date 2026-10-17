@@ -54,9 +54,7 @@ def _open_store() -> tuple[Any, Any]:
 
         adapter = RedisClientAdapter(url=REDIS_URL)
         adapter.connect()
-        return RedisStateStore(
-            namespace=NAMESPACE, client=adapter, pod_state_ttl_sec=30
-        ), adapter
+        return RedisStateStore(namespace=NAMESPACE, client=adapter, pod_state_ttl_sec=30), adapter
     from lkscaler_core.zookeeper import KazooNodeClient, ZooKeeperStateStore
 
     client = KazooNodeClient(hosts=ZK_HOSTS, session_timeout_sec=10)
