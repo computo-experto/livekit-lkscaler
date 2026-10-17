@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lkscaler-keda"
-version = "0.1.0"
+version = "1.0.0"
 description = "KEDA external scaler that keeps a minimum number of free LKScaler slots available"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -15,14 +15,14 @@ authors = [
 ]
 keywords = ["livekit", "keda", "autoscaling", "binpack"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
   "Topic :: System :: Distributed Computing",
 ]
 dependencies = [
-  "lkscaler-core>=0.2.0",
+  "lkscaler-core>=1.0.0",
   "grpcio>=1.60.0",
   "protobuf>=4.25.0",
 ]

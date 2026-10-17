@@ -19,18 +19,19 @@ Every run publishes the same two distributions; there is no per-package publish 
 4. Assemble the payload and fail if either package is missing a wheel or sdist.
 5. Publish all three packages to TestPyPI via trusted publishing.
 6. Gate by installing all three packages from TestPyPI in a clean environment.
-7. If the target is `both`, publish all three packages to PyPI after the gate succeeds. The PyPI upload is split
-   into two ordered steps, `lkscaler-core` first: if a project is missing its PyPI trusted publisher the run
-   fails before anything is published, instead of leaving one package of the pair behind.
+7. If the target is `both`, publish all three packages to PyPI after the gate succeeds. The PyPI upload runs
+   `lkscaler-core` first, then `livekit-lkscaler`, then `lkscaler-keda`: if a project is missing its PyPI trusted
+   publisher the run fails before anything is published, instead of leaving part of the set behind.
 
 The version guard fails the run when `lkscaler-core`, `livekit-lkscaler` and `lkscaler-keda` do not share one version. The
 TestPyPI install gate includes retries with backoff to tolerate index propagation delay.
 
 ## Prerequisites
 
-- PyPI trusted publishers must exist for **both** projects. `livekit-lkscaler` has one; `lkscaler-core`
-  additionally requires a pending publisher on PyPI (or the matching trusted publisher) before the PyPI
-  stage can upload it. TestPyPI already has both.
+- Trusted publishers, as of 2026-10-17: **TestPyPI is ready for all three** projects
+  (`lkscaler-core`, `livekit-lkscaler`, `lkscaler-keda`). On **PyPI** only `livekit-lkscaler` has one, so the
+  `both` target cannot upload `lkscaler-core` or `lkscaler-keda` until a pending/trusted publisher exists for
+  each. A `testpypi` dispatch rehearses the whole coordinated flow without them.
 - Versions must be bumped past anything already published to the target index. PyPI rejects re-uploads of an
   existing file, so publishing an unchanged version fails by design.
 
@@ -78,7 +79,7 @@ make verify-testpypi-install PACKAGE=livekit-lkscaler VERSION=<version>
 ## Current release policy
 
 - Publishing all three packages together is the supported flow; per-package publishing is not.
-- A PyPI/TestPyPI trusted publisher must exist for `lkscaler-keda` before the first release that includes it.
-- The Milestone 9 proof gate (`make proof-gate`) is the documented real-world integration gate, but it is not
-  yet wired as an automated release block. Treat it as a manual pre-release check, and do not describe the
-  release as proof-gated until the workflow enforces it.
+- The Publish workflow runs `make proof-gate` in a blocking `proof-gate` job: `publish-testpypi` needs it and only
+  runs when it succeeded, so no target publishes while any enforced scenario fails. The gate covers the unit,
+  integration and compose E2E suites, the real-agent placement scenarios, the proof assertions and the KEDA
+  scale proof in kind.

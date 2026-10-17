@@ -6,7 +6,24 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-17
+
+`lkscaler-core`, `livekit-lkscaler` and `lkscaler-keda` ship at one version with
+`Development Status :: 5 - Production/Stable`. The real-agent placement scenarios and the KEDA scale proof are
+release-blocking: `make proof-gate` runs them, and the Publish workflow refuses to publish when it fails. The
+failure cases that are deliberately out of scope for this gate - burst absorption, backend outage, soak churn,
+fault injection and restart reconciliation - are recorded with their reasoning in `docs/usage/proof-gate.md`.
+
 ### Added
+
+- `lkscaler-keda` is part of the released product again: a KEDA external scaler that turns the placement
+  signal into a replica count, with the `external` trigger metadata documented in its README. It ships at the
+  same version as `lkscaler-core` and `livekit-lkscaler`, and the Publish workflow builds, verifies and
+  releases all three together.
+- The KEDA scale proof: a kind harness (`make test-keda-scale-e2e`) deploys ZooKeeper, a production-mode
+  LiveKit server, real workers, the scaler and a `ScaledObject`, then proves replicas rise under accepted load
+  and fall back when the pool is idle. `make proof-gate` now runs the real-agent scenario suite and this scale
+  proof, and the Publish workflow runs `make proof-gate` before publishing.
 
 - ZooKeeper coordination backend (`pip install "lkscaler-core[zookeeper]"`): atomic reservation claims,
   TTL expiry cleanup, pod occupancy, and room nodes under `/livekit-binpack/{namespace}`. Unit-tested

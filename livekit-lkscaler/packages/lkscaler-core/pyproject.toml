@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lkscaler-core"
-version = "0.2.0"
+version = "1.0.0"
 description = "Bin-pack LiveKit agent jobs onto fewer workers so idle capacity can be scaled down sooner"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -15,7 +15,7 @@ authors = [
 ]
 keywords = ["livekit", "zookeeper", "binpack", "autoscaling"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",

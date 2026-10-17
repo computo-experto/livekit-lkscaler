@@ -6,7 +6,7 @@ VERSION="${2:-}"
 
 if [[ -z "${PACKAGE}" || -z "${VERSION}" ]]; then
   echo "Usage: $0 <package-name> <version>" >&2
-  echo "Example: $0 lkscaler-core 0.1.0" >&2
+  echo "Example: $0 lkscaler-core 1.0.0" >&2
   exit 2
 fi
 
