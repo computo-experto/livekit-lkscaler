@@ -25,6 +25,7 @@ jobs:
       publish_target: ${{ steps.meta.outputs.publish_target }}
       core_version: ${{ steps.versions.outputs.core_version }}
       livekit_version: ${{ steps.versions.outputs.livekit_version }}
+      keda_version: ${{ steps.keda_version.outputs.version }}
     steps:
       - name: Determine publish target
         id: meta
@@ -84,14 +85,31 @@ jobs:
           echo "core_version=${core_version}" >> "$GITHUB_OUTPUT"
           echo "livekit_version=${livekit_version}" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve the KEDA package version
+        id: keda_version
+        shell: bash
+        working-directory: livekit-lkscaler
+        run: |
+          keda_version="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          pyproject = Path('packages/lkscaler-keda/pyproject.toml')
+          data = tomllib.loads(pyproject.read_text())
+          print(data['project']['version'])
+          PY
+          )"
+          echo "version=${keda_version}" >> "$GITHUB_OUTPUT"
+
       - name: Enforce matching release versions
         shell: bash
         working-directory: livekit-lkscaler
         run: |
           core_version="${{ steps.versions.outputs.core_version }}"
           livekit_version="${{ steps.versions.outputs.livekit_version }}"
-          if [[ "${core_version}" != "${livekit_version}" ]]; then
-            echo "error: lkscaler-core (${core_version}) and livekit-lkscaler (${livekit_version}) must share one release version" >&2
+          keda_version="${{ steps.keda_version.outputs.version }}"
+          if [[ "${core_version}" != "${livekit_version}" || "${core_version}" != "${keda_version}" ]]; then
+            echo "error: lkscaler-core (${core_version}), livekit-lkscaler (${livekit_version}) and lkscaler-keda (${keda_version}) must share one release version" >&2
             exit 1
           fi
 
@@ -106,23 +124,24 @@ jobs:
             exit 1
           fi
 
-      - name: Build both packages
+      - name: Build all three packages
         working-directory: livekit-lkscaler
         run: |
           uv build packages/lkscaler-core --out-dir dist/core
           uv build packages/lkscaler-livekit --out-dir dist/livekit
+          uv build packages/lkscaler-keda --out-dir dist/keda
 
       - name: Twine check
         working-directory: livekit-lkscaler
-        run: uv run --with twine twine check dist/core/* dist/livekit/*
+        run: uv run --with twine twine check dist/core/* dist/livekit/* dist/keda/*
 
       - name: Smoke install built wheels
         working-directory: livekit-lkscaler
         run: |
           python -m venv .venv-publish-smoke
           .venv-publish-smoke/bin/python -m pip install --upgrade pip
-          .venv-publish-smoke/bin/pip install dist/core/*.whl dist/livekit/*.whl
-          .venv-publish-smoke/bin/python -c "import lkscaler_core; import lkscaler_livekit; print(lkscaler_core.__name__, lkscaler_livekit.__name__)"
+          .venv-publish-smoke/bin/pip install dist/core/*.whl dist/livekit/*.whl dist/keda/*.whl
+          .venv-publish-smoke/bin/python -c "import lkscaler_core, lkscaler_keda, lkscaler_livekit; print(lkscaler_core.__name__, lkscaler_livekit.__name__, lkscaler_keda.__name__)"
 
       - name: Assemble dist payload
         working-directory: livekit-lkscaler
@@ -130,12 +149,13 @@ jobs:
           mkdir -p dist/all
           cp dist/core/* dist/all/
           cp dist/livekit/* dist/all/
+          cp dist/keda/* dist/all/
 
-      - name: Verify both distributions are in the payload
+      - name: Verify all three distributions are in the payload
         shell: bash
         working-directory: livekit-lkscaler
         run: |
-          for dist in lkscaler_core livekit_lkscaler; do
+          for dist in lkscaler_core livekit_lkscaler lkscaler_keda; do
             wheels=(dist/all/${dist}-*.whl)
             sdists=(dist/all/${dist}-*.tar.gz)
             if [[ ! -f "${wheels[0]}" || ! -f "${sdists[0]}" ]]; then
@@ -166,7 +186,7 @@ jobs:
           name: dist-all
           path: dist
 
-      - name: Publish both packages to TestPyPI
+      - name: Publish all three packages to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
@@ -183,13 +203,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Validate install of both packages from TestPyPI
+      - name: Validate install of all three packages from TestPyPI
         shell: bash
         run: |
           python -m venv .venv-testpypi-gate
           .venv-testpypi-gate/bin/python -m pip install --upgrade pip
           for attempt in 1 2 3 4 5 6 7 8; do
-            if .venv-testpypi-gate/bin/pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ lkscaler-core==${{ needs.build-and-verify.outputs.core_version }} livekit-lkscaler==${{ needs.build-and-verify.outputs.livekit_version }}; then
+            if .venv-testpypi-gate/bin/pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ lkscaler-core==${{ needs.build-and-verify.outputs.core_version }} livekit-lkscaler==${{ needs.build-and-verify.outputs.livekit_version }} lkscaler-keda==${{ needs.build-and-verify.outputs.keda_version }}; then
               break
             fi
             if [[ "${attempt}" -eq 8 ]]; then
@@ -198,7 +218,7 @@ jobs:
             fi
             sleep "$((attempt * 10))"
           done
-          .venv-testpypi-gate/bin/python -c "import lkscaler_core; import lkscaler_livekit; print('testpypi-gate-ok', lkscaler_core.__name__, lkscaler_livekit.__name__)"
+          .venv-testpypi-gate/bin/python -c "import lkscaler_core, lkscaler_keda, lkscaler_livekit; print('testpypi-gate-ok', lkscaler_core.__name__, lkscaler_livekit.__name__, lkscaler_keda.__name__)"
 
   publish-pypi:
     needs: [build-and-verify, gate-testpypi-install]
@@ -218,9 +238,10 @@ jobs:
       - name: Split payload by package
         shell: bash
         run: |
-          mkdir -p dist/core dist/livekit
+          mkdir -p dist/core dist/livekit dist/keda
           for file in dist/lkscaler_core-*; do mv "${file}" dist/core/; done
           for file in dist/livekit_lkscaler-*; do mv "${file}" dist/livekit/; done
+          for file in dist/lkscaler_keda-*; do mv "${file}" dist/keda/; done
 
       - name: Publish lkscaler-core to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -231,3 +252,8 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/livekit
+
+      - name: Publish lkscaler-keda to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/keda
