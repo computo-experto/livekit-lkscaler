@@ -17,6 +17,10 @@ class ReservationStore:
     def get(self, *, pod_id: str, job_id: str) -> ReservationRecord | None:
         raise NotImplementedError
 
+    def remove_expired(self, *, now: datetime) -> int:
+        """Drop reservations whose TTL has passed, returning how many went."""
+        raise NotImplementedError
+
 
 @dataclass
 class InMemoryReservationStore(ReservationStore):

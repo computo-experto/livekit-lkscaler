@@ -70,3 +70,8 @@ Usage documentation exists under [livekit-lkscaler/docs/usage](livekit-lkscaler/
 ## Contributing
 
 Contribution guidelines are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE). Contributions are accepted under the
+terms of that license (§5), so no separate contributor agreement is needed.

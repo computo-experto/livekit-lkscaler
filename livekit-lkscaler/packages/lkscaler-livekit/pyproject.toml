@@ -8,7 +8,8 @@ version = "0.2.0"
 description = "LiveKit agent hooks that bin-pack jobs so self-hosted fleets scale down sooner"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [
   { name = "LKScaler Maintainers" },
 ]
@@ -16,7 +17,6 @@ keywords = ["livekit", "agents", "zookeeper", "binpack", "scaling"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
   "Topic :: Software Development :: Libraries",

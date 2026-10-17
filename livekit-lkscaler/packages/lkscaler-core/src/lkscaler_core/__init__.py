@@ -5,7 +5,7 @@ from .models import PodOccupancy, ReservationRecord, RoomRecord
 from .paths import ZkPaths
 from .reservations import InMemoryReservationStore, ReservationStore
 from .snapshot import ClusterSnapshot, ClusterSnapshotCache
-from .state import ClusterStateStore, ExpiringReservationStore, PodState
+from .state import ClusterStateStore, PodState
 
 __all__ = [
     "AdmissionResult",
@@ -13,7 +13,6 @@ __all__ = [
     "ClusterSnapshot",
     "ClusterSnapshotCache",
     "ClusterStateStore",
-    "ExpiringReservationStore",
     "InMemoryReservationStore",
     "PodOccupancy",
     "PodState",

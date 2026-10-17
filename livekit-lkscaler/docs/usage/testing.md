@@ -65,6 +65,33 @@ Minimal smoke test to ensure test framework is functional.
 **Tests:**
 - `test_e2e_smoke()` — trivial test that always passes (baseline).
 
+#### `test_e2e_backends.py`
+Cross-process coordination against a real backend. Two backend-wired agents
+(`packed-agent1`, `packed-agent2`) share one namespace and one backend, and drive the real
+`reserve_for_admission` and `build_load_fnc` over a small HTTP API, so every assertion comes
+from the backend's own cluster view rather than from container logs.
+
+Run both backends (the default), or just one:
+
+```bash
+make test-e2e-backends
+LKSCALER_E2E_BACKENDS=redis make test-e2e-backends
+```
+
+The runner starts the stack with the `backends` profile — which adds `redis` and the two
+packed agents while leaving the default six-service stack untouched — runs the suite,
+captures artifacts under `e2e/artifacts/backends/<backend>/`, and tears the stack down
+between backends so no keys or znodes leak across runs.
+
+What it asserts per backend: the winner keeps winning until it reaches its target, spillover
+happens at the target, the overflow bound rejects the next request, a released claim frees
+the slot, an abandoned claim expires, and a killed worker leaves the cluster view (ZooKeeper
+session close, Redis TTL).
+
+These agents are simulators: they call the real placement functions, but there is no LiveKit
+dispatch window, so a green run proves coordination across processes, not LiveKit's dispatch
+path.
+
 #### `test_proof_gate_artifacts.py`
 Validates compose artifacts (output from `docker compose ps` and logs) meet quantitative thresholds.
 

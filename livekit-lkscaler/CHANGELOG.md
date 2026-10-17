@@ -11,27 +11,45 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - ZooKeeper coordination backend (`pip install "lkscaler-core[zookeeper]"`): atomic reservation claims,
   TTL expiry cleanup, pod occupancy, and room nodes under `/livekit-binpack/{namespace}`. Unit-tested
   against a fake node client and integration-tested against a real ensemble.
-- Coordination contracts shared by every backend: `PodState`, `ClusterStateStore`, and
-  `ExpiringReservationStore`, so placement math never learns which backend is running.
+- Coordination contracts shared by every backend: `PodState` and `ClusterStateStore`, plus TTL cleanup
+  folded into `ReservationStore` so placement math never learns which backend is running.
 - `make test-integration-zookeeper` starts a single-node ZooKeeper on port 22181, runs the backend
   integration tests, and tears the container down; those tests skip cleanly without `LKSCALER_ZK_HOSTS`.
 - `docs/usage/coordination.md` documents the contracts, the ZooKeeper layout, cleanup behaviour, and how to
   choose a backend.
-
-### Changed
-
-- `kazoo` moved from a base dependency to the `zookeeper` extra, so a base install no longer downloads a
-  client it never imports.
-
-### Added
-
 - Redis coordination backend (`pip install "lkscaler-core[redis]"`): atomic `SET NX` reservation claims,
   TTL-bounded pod occupancy and rooms under `livekit-binpack:{namespace}`, and a `MemoryRedisClient` double
   with a controllable clock so expiry is tested without sleeping. Integration-tested against a real Redis.
 - `make test-integration-redis` starts Redis on port 26379, runs the backend integration tests, and removes
   the container; the tests skip cleanly without `LKSCALER_REDIS_URL`.
-- `docs/usage/coordination.md` gains Redis setup and the trade-offs between the backends, and states that
-  KEDA is a scaler rather than a coordination service.
+- Cross-process coordination E2E: two backend-wired agents (`e2e/fixtures/packed_agent.py`) drive the real
+  `reserve_for_admission` and `build_load_fnc` against a selected backend and expose them over HTTP, so
+  `e2e/tests/test_e2e_backends.py` asserts the cluster view the backend actually holds: fill-before-spillover,
+  the overflow bound, cross-worker visibility, claim release, TTL expiry, and a killed worker leaving the
+  cluster view (ZooKeeper session close, Redis TTL).
+- `make test-e2e-backends` runs that suite once per backend through the compose `backends` profile, which
+  adds `redis` and the two packed agents without touching the default six-service stack, and captures
+  per-backend artifacts under `e2e/artifacts/backends/`.
+
+### Changed
+
+- `kazoo` moved from a base dependency to the `zookeeper` extra, so a base install no longer downloads a
+  client it never imports.
+- Licensing settled on Apache-2.0 and made consistent: the repo previously shipped an abridged Apache-2.0
+  text in one file while all three packages declared MIT, and no license text reached the artifacts. The
+  canonical Apache-2.0 text now sits at the repository root and in every package, packages use PEP 639
+  metadata (`license = "Apache-2.0"`, `license-files`), the deprecated MIT classifier is gone, and both
+  `LICENSE` and `NOTICE` ship in the wheels and sdists.
+
+### Fixed
+
+- The E2E agent image built an empty virtualenv: `uv sync --frozen --no-dev` syncs only the workspace root
+  project, which declares no dependencies, so every agent container failed at import. It now syncs with
+  `--all-packages`, and the backend-wired agents run on `/app/.venv/bin/python`. The pre-existing
+  `agent1`/`agent2` services are deliberately left as-is so this change does not alter what the existing E2E
+  assertions observe.
+- `ReservationStore` declares `remove_expired` as part of the contract, replacing the separate
+  `ExpiringReservationStore` protocol that added a second name for the same thing.
 
 ## [0.2.0] - 2026-10-17
 
