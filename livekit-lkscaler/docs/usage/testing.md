@@ -121,6 +121,11 @@ default `livekit-lkscaler-real`) rather than sharing the simulators': a pool tha
 cannot serve LiveKit dispatch hands the winner slot to a pod the server can never pick. The suite asserts
 the pool holds exactly the workers under test.
 
+The suite is part of the release-blocking proof gate (`make proof-gate`), not the per-PR CI: each scenario
+needs a freshly created stack, and mixing several scenarios into one stack lets a job from the previous
+scenario still be draining when the next one dispatches - which shows up as a dispatch the server will not
+assign. `make test-real-agent-scenarios` runs it on demand against ZooKeeper and Redis.
+
 It asserts that two dispatched rooms pack onto one worker while the other two stay at zero and
 no worker exceeds `room_target_n + overflow_margin`, and that ending the room returns the slot.
 Before the second dispatch it waits until every worker has *reported* a load that leaves the
