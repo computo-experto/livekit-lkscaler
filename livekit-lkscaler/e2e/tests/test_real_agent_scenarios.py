@@ -100,19 +100,13 @@ async def _delete_stray_rooms(client: api.LiveKitAPI) -> None:
             await _delete_room(client, room.name)
 
 
-def _rooms_now(store: ClusterStateStore) -> dict[str, int]:
-    """Rooms per worker right now, so a test can reason about what its own dispatch changed."""
-    return {pod_id: state.active_rooms for pod_id, state in _states(store).items()}
+def _lone_holder(store: ClusterStateStore, *, expects_rooms: int) -> str | None:
+    states = _states(store)
+    holders = [pod_id for pod_id, state in states.items() if state.active_rooms == expects_rooms]
+    return holders[0] if len(holders) == 1 else None
 
 
-def _delta_holder(store: ClusterStateStore, before: dict[str, int]) -> str | None:
-    """The one worker whose room count grew since ``before``; None if ambiguous."""
-    after = _rooms_now(store)
-    grew = [pod_id for pod_id, rooms in after.items() if rooms > before.get(pod_id, 0)]
-    return grew[0] if len(grew) == 1 else None
-
-
-def _poll(check: Callable[[], Any], *, describe: str, timeout: float = 60.0) -> Any:
+async def _poll(check: Callable[[], Any], *, describe: str, timeout: float = 60.0) -> Any:
     deadline = time.monotonic() + timeout
     last: Any = None
     while time.monotonic() < deadline:
@@ -196,16 +190,11 @@ async def stack() -> AsyncIterator[Stack]:
         # room left behind by an earlier scenario keeps blocking dispatch. Clear the namespace
         # first: a scenario must start from a clean server and an idle backend.
         await _delete_stray_rooms(client)
-        # Jobs exit asynchronously once their room ends, and a fixture must not fail because a
-        # previous scenario is still draining: wait briefly, then assert on deltas instead.
-        try:
-            await _poll(
-                lambda: _all_idle(store),
-                describe="the pool to be idle before the scenario dispatches",
-                timeout=15,
-            )
-        except BaseException:  # noqa: BLE001 - the wait is advisory; deltas make it unnecessary
-            pass
+        await _poll(
+            lambda: _all_idle(store),
+            describe="the pool to be idle before the scenario dispatches",
+            timeout=30,
+        )
         try:
             yield store, client, rooms
         finally:
@@ -217,10 +206,9 @@ async def stack() -> AsyncIterator[Stack]:
 async def test_dispatched_rooms_pack_onto_one_real_worker(stack: Stack) -> None:
     store, client, rooms = stack
 
-    before = _rooms_now(store)
     await _dispatch(client, rooms, "m9-pack-1")
     first_holder = await _poll(
-        partial(_delta_holder, store, before),
+        lambda: _lone_holder(store, expects_rooms=1),
         describe="a real worker to accept the first dispatched room",
     )
 
@@ -255,10 +243,9 @@ async def test_dispatched_rooms_pack_onto_one_real_worker(stack: Stack) -> None:
 async def test_deleting_the_room_releases_the_worker_slot(stack: Stack) -> None:
     store, client, rooms = stack
 
-    before = _rooms_now(store)
     await _dispatch(client, rooms, "m9-release-1")
     holder = await _poll(
-        partial(_delta_holder, store, before),
+        lambda: _lone_holder(store, expects_rooms=1),
         describe="a real worker to accept the dispatched room",
     )
     await _poll(
@@ -278,10 +265,9 @@ async def test_deleting_the_room_releases_the_worker_slot(stack: Stack) -> None:
 async def test_steady_dispatch_packs_one_worker_to_its_target(stack: Stack) -> None:
     store, client, rooms = stack
 
-    before = _rooms_now(store)
     await _dispatch(client, rooms, "m9-steady-1")
     first = await _poll(
-        partial(_delta_holder, store, before),
+        lambda: _lone_holder(store, expects_rooms=1),
         describe="a real worker to accept the first room of a steady stream",
     )
 
@@ -292,9 +278,9 @@ async def test_steady_dispatch_packs_one_worker_to_its_target(stack: Stack) -> N
             describe=f"{first} to accept room {index} of the steady stream",
         )
 
-    assert _rooms(store, first) - before.get(first, 0) == ROOM_TARGET_N
+    assert _rooms(store, first) == ROOM_TARGET_N
     for pod_id in PODS:
         if pod_id != first:
-            assert _rooms(store, pod_id) == before.get(pod_id, 0), (
+            assert _rooms(store, pod_id) == 0, (
                 f"{pod_id} took a steady room while {first} still had capacity"
             )
