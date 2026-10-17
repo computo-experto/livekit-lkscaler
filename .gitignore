@@ -10,3 +10,8 @@ dist/
 build/
 *.egg-info/
 livekit-lkscaler/e2e/artifacts/
+
+# Editor and IDE state
+*.code-workspace
+.vscode/
+.idea/
