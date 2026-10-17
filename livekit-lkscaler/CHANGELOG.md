@@ -6,6 +6,23 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- ZooKeeper coordination backend (`pip install "lkscaler-core[zookeeper]"`): atomic reservation claims,
+  TTL expiry cleanup, pod occupancy, and room nodes under `/livekit-binpack/{namespace}`. Unit-tested
+  against a fake node client and integration-tested against a real ensemble.
+- Coordination contracts shared by every backend: `PodState`, `ClusterStateStore`, and
+  `ExpiringReservationStore`, so placement math never learns which backend is running.
+- `make test-integration-zookeeper` starts a single-node ZooKeeper on port 22181, runs the backend
+  integration tests, and tears the container down; those tests skip cleanly without `LKSCALER_ZK_HOSTS`.
+- `docs/usage/coordination.md` documents the contracts, the ZooKeeper layout, cleanup behaviour, and how to
+  choose a backend.
+
+### Changed
+
+- `kazoo` moved from a base dependency to the `zookeeper` extra, so a base install no longer downloads a
+  client it never imports.
+
 ## [0.2.0] - 2026-10-17
 
 ### Added

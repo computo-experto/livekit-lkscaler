@@ -8,7 +8,7 @@ It focuses on what you need to run the library in production: prerequisites, int
 Before integrating the library, make sure you have:
 
 - A working LiveKit Agent worker application.
-- A shared store for reservations and cluster occupancy, so workers can see each other's slots. ZooKeeper is the designed backend; any service you already run works if it satisfies the store contract. The store that ships today is in-memory and single-process, so a real fleet needs your own implementation.
+- A shared store for reservations and cluster occupancy, so workers can see each other's slots. ZooKeeper is available as an optional extra (`pip install "lkscaler-core[zookeeper]"`); Redis and a Kubernetes-native backend are in progress. The base install carries an in-memory store only, which is single-process and therefore not enough for a multi-worker fleet.
 - A unique `pod_id` for each worker instance.
 - A cluster namespace shared by the workers that should participate in the same scaling pool.
 

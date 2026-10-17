@@ -14,7 +14,7 @@ No particular autoscaler is required. Use Kubernetes HPA or KEDA if you have the
 
 ## Shared state
 
-Reservations and cluster occupancy need a store every worker can read. `InMemoryReservationStore` is what ships today and it is single-process only, so a real multi-worker fleet needs an implementation of the `ReservationStore` contract: ZooKeeper is the designed backend (a kazoo-backed store is not written yet), but etcd, Redis, or an existing service of yours work equally well.
+Reservations and cluster occupancy need a store every worker can read. What ships in the base install is `InMemoryReservationStore`, which is single-process and meant for tests; a real fleet uses a shared backend. The ZooKeeper backend is implemented (`pip install "lkscaler-core[zookeeper]"`, integration-tested against a real ensemble), Redis is next, and a Kubernetes/KEDA-native backend that needs no external store is in design. Anything you already run works too, as long as it keeps the `ReservationStore` and `ClusterStateStore` contracts. See [Coordination backends](docs/usage/coordination.md).
 
 ## Requirements
 

@@ -150,23 +150,37 @@ assert summary.snapshot_age_sec == 30
 | `ClusterSnapshot`, `ClusterSnapshotCache` | Lock-protected view of free slots per worker. |
 | `lkscaler_core.snapshot.summarize_cluster_snapshot`, `PodSnapshot`, `ClusterSnapshotSummary` | Cluster totals, idle-worker count, smallest idle-worker free slots, snapshot age. |
 
-## Bringing your own coordination layer
+## Coordination backends
 
-`InMemoryReservationStore` coordinates nothing across processes; it exists for single-worker use and tests. For a real fleet, implement `ReservationStore` against your coordination service (ZooKeeper, etcd, Redis, ...) and keep the same contract:
+`InMemoryReservationStore` coordinates nothing across processes; it exists for single-worker use and tests. For a real fleet, use a shared backend:
 
-- `create(reservation) -> bool` must return `False` when the reservation already exists, so the losing worker backs off,
+```bash
+pip install "lkscaler-core[zookeeper]"
+```
+
+```python
+from lkscaler_core.zookeeper import KazooNodeClient, ZooKeeperStateStore
+
+client = KazooNodeClient(hosts=["zk-0.zk:2181", "zk-1.zk:2181"], session_timeout_sec=10)
+client.start()
+store = ZooKeeperStateStore(namespace="livekit-lkscaler", client=client)
+```
+
+`ZooKeeperStateStore` satisfies the reservation, expiry, and cluster-state contracts, so it drops straight into `build_on_request_handler` and `build_load_fnc`. A Redis backend is next, and a Kubernetes/KEDA-native backend (no external store at all) is in design. See [Coordination backends](https://github.com/computo-experto/livekit-lkscaler/blob/main/livekit-lkscaler/docs/usage/coordination.md) for the node layout, cleanup, and backend trade-offs.
+
+Any other store works too, as long as it keeps the contract:
+
+- `create(reservation) -> bool` must be atomic and return `False` when the reservation already exists, so the losing worker backs off,
 - `delete(*, pod_id, job_id)` must be idempotent,
 - `get(*, pod_id, job_id)` returns `None` when there is no reservation.
 
-Pair it with your own tracker that publishes local occupancy and the cluster free-slot map, which is exactly what [`livekit-lkscaler`](https://pypi.org/project/livekit-lkscaler/) consumes.
+`ClusterStateStore` is the other half: `publish_pod_state` and `free_slots_by_pod`, which is exactly what [`livekit-lkscaler`](https://pypi.org/project/livekit-lkscaler/) reads.
 
 ## What this package does not do
 
-- It ships no coordination backend. `InMemoryReservationStore` is single-process, so a multi-worker fleet needs your own `ReservationStore`; ZooKeeper is the designed backend but a kazoo-backed store is not written yet.
-- `ZkPaths` documents ZooKeeper path conventions; nothing in this package opens a connection.
-- `BinpackConfig.zk_session_timeout_sec`, `BinpackConfig.sync_interval_ms`, and `BinpackConfig.fail_mode` are declarations for that coordination layer; the helpers in this package do not read them.
 - It assumes no autoscaler. KEDA is optional and lives in a separate package.
-- No network I/O, no background threads beyond the store and cache locks, no LiveKit dependency.
+- `BinpackConfig.zk_session_timeout_sec`, `BinpackConfig.sync_interval_ms`, and `BinpackConfig.fail_mode` are declarations for your coordination layer; the placement helpers do not read them.
+- The base install has no network dependency at all: kazoo arrives only with the `zookeeper` extra, and Redis will arrive with its own extra. No background threads beyond the store and cache locks, no LiveKit dependency.
 
 ## Links
 

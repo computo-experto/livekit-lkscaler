@@ -7,7 +7,7 @@ LiveKit spreads incoming jobs across every worker that reports itself available.
 It does not require a particular autoscaler or coordination service:
 
 - **Scaling.** Use Kubernetes HPA or KEDA if your cluster has them, or any replica manager that reacts to the load signal a LiveKit Agent worker reports. Nothing in the placement path needs KEDA.
-- **Shared state.** Reservations and cluster occupancy have to live somewhere all workers can read. ZooKeeper is the designed backend. Any store you already run works too, as long as it implements the reservation store contract in `lkscaler-core`. Today the shipped packages bundle only an in-memory store, which is single-process: running a real fleet means supplying the shared store, and a ZooKeeper-backed implementation is still to be written.
+- **Shared state.** Reservations and cluster occupancy have to live somewhere all workers can read. The ZooKeeper backend ships as an optional extra (`pip install "lkscaler-core[zookeeper]"`) and is integration-tested against a real ensemble; Redis is next and a Kubernetes/KEDA-native backend that needs no external store is in design. Any store you already run works too, as long as it keeps the reservation and cluster-state contracts. The base install carries an in-memory store only, which is single-process.
 
 ## What Is Here
 

@@ -4,6 +4,8 @@ LiveKit agent worker hooks that make a self-hosted Agent fleet cheaper to run: j
 
 The package adapts [`lkscaler-core`](https://pypi.org/project/lkscaler-core/) to the two callbacks a LiveKit agent worker needs, and adds no placement logic of its own. It does not require KEDA: the `load_fnc` value it produces is what any replica manager — Kubernetes HPA, KEDA, or LiveKit's own scaling — reacts to, and the KEDA external scaler in `lkscaler-keda` is an optional extra for clusters that run KEDA.
 
+Reservations and cluster occupancy come from whatever backend you supply: an in-memory store ships for tests and single-worker use, and a ZooKeeper backend is available through `lkscaler-core[zookeeper]`. See [Coordination backends](https://github.com/computo-experto/livekit-lkscaler/blob/main/livekit-lkscaler/docs/usage/coordination.md).
+
 Requires Python 3.12+ and `livekit-agents>=1.6.2` (installed as a dependency).
 
 ## Install
