@@ -23,6 +23,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - `kazoo` moved from a base dependency to the `zookeeper` extra, so a base install no longer downloads a
   client it never imports.
 
+### Added
+
+- Redis coordination backend (`pip install "lkscaler-core[redis]"`): atomic `SET NX` reservation claims,
+  TTL-bounded pod occupancy and rooms under `livekit-binpack:{namespace}`, and a `MemoryRedisClient` double
+  with a controllable clock so expiry is tested without sleeping. Integration-tested against a real Redis.
+- `make test-integration-redis` starts Redis on port 26379, runs the backend integration tests, and removes
+  the container; the tests skip cleanly without `LKSCALER_REDIS_URL`.
+- `docs/usage/coordination.md` gains Redis setup and the trade-offs between the backends, and states that
+  KEDA is a scaler rather than a coordination service.
+
 ## [0.2.0] - 2026-10-17
 
 ### Added

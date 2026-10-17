@@ -55,6 +55,9 @@ jobs:
       - name: ZooKeeper backend integration tests
         run: make test-integration-zookeeper
 
+      - name: Redis backend integration tests
+        run: make test-integration-redis
+
       - name: Coverage gate (unit + integration)
         run: make test-coverage
 

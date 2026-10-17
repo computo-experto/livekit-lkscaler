@@ -23,12 +23,17 @@ Redis `SET NX`, a Kubernetes API object create.
 | --- | --- | --- | --- |
 | `InMemoryReservationStore` | ships today, **single process only** | base package | process memory (tests, one worker) |
 | ZooKeeper | implemented, integration-tested against a real ensemble | `pip install "lkscaler-core[zookeeper]"` | znodes under `/livekit-binpack/{namespace}` |
-| Redis | planned | `pip install "lkscaler-core[redis]"` (extra declared, implementation pending) | keys and hashes per namespace |
-| Kubernetes / KEDA-native | design pending | — | Kubernetes API, no external store |
+| Redis | implemented, integration-tested against a real server | `pip install "lkscaler-core[redis]"` | keys under `livekit-binpack:{namespace}` |
 
 The in-memory store exists for tests and single-worker experiments. It coordinates
 nothing across processes, so two workers using it can both believe they own the same
 slot. Use a real backend for a real fleet.
+
+KEDA is not a coordination backend. It is a scaler: it reacts to metrics and changes
+replica counts, and it keeps no shared state. The optional integration in
+`lkscaler-keda` reads cluster free slots from whichever backend above you run and
+adjusts replicas accordingly, so clusters without KEDA use the same placement path and
+just scale by another means (HPA, or LiveKit's own scaling).
 
 ## ZooKeeper
 
@@ -74,13 +79,48 @@ Operational notes:
 - Namespaces are isolated, so one ensemble can host several pools: give each pool its own
   `namespace` and only that pool's workers read it.
 
+## Redis
+
+```bash
+pip install "lkscaler-core[redis]"
+```
+
+```python
+from lkscaler_core.redis import RedisClientAdapter, RedisStateStore
+
+adapter = RedisClientAdapter(url="redis://cache:6379/0")
+adapter.connect()
+store = RedisStateStore(namespace="livekit-lkscaler", client=adapter, pod_state_ttl_sec=30)
+```
+
+Key layout:
+
+- `livekit-binpack:{namespace}:pods:{pod_id}` — this worker's occupancy, TTL-bounded.
+- `livekit-binpack:{namespace}:rooms:{room_id}` — a live room.
+- `livekit-binpack:{namespace}:reservations:{pod_id}:{job_id}` — a claim, TTL equal to the
+  reservation lifetime.
+
+Operational notes:
+
+- Atomicity comes from `SET NX`, so exactly one worker wins a contested job.
+- TTL is the ephemeral-node equivalent: a worker that dies stops refreshing its keys and
+  its occupancy and claims vanish on their own. `pod_state_ttl_sec` should be a small
+  multiple of your publish interval (`sync_interval_ms`) so a dead worker disappears
+  quickly without flapping a slow one.
+- `remove_expired(now=...)` still works and is useful for parity and for auditing; Redis
+  also expires the keys for you.
+- Use one namespace per pool, and a separate database or instance if pools must not share
+  a keyspace.
+
 ## Testing a backend locally
 
 ```bash
 make test-integration-zookeeper
+make test-integration-redis
 ```
 
-This starts a single-node ZooKeeper on port 22181 (not 2181, so a local ensemble is left
-alone), runs the integration tests against it, and removes the container afterwards. The
-same tests skip cleanly when `LKSCALER_ZK_HOSTS` is unset, which keeps the default
-`make test-integration` hermetic.
+Each target starts the backend in a container on a non-default host port (22181 for
+ZooKeeper, 26379 for Redis, so a local instance on 2181/6379 is left alone), runs the
+backend integration tests against it, and removes the container afterwards. The same
+tests skip cleanly when `LKSCALER_ZK_HOSTS` or `LKSCALER_REDIS_URL` is unset, which keeps
+the default `make test-integration` hermetic.
