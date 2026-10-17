@@ -31,7 +31,7 @@ load_fnc = build_load_fnc(config=config, store=store, tracker=tracker)
 
 ## Behavioral contract
 
-- `load_fnc` returns `0.0` for current winner and `1.0` for non-winners.
+- `load_fnc` returns `0.0` for the single winning worker and `1.0` for every other worker, including a worker whose slots its peers cannot see yet.
 - `on_request` creates reservation before accept.
 - If accept fails, reservation is cleaned up.
 - Overflow admission is bounded by `room_target_n + overflow_margin`.

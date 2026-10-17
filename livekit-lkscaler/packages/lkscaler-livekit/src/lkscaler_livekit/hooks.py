@@ -10,7 +10,6 @@ from lkscaler_core import (
     ReservationStore,
     choose_load_signal,
     cleanup_unassigned_reservation,
-    min_positive_free_slots,
     reserve_for_admission,
 )
 
@@ -85,20 +84,17 @@ def build_load_fnc(
 ) -> Callable[..., float]:
     """Build LiveKit ``load_fnc`` callback.
 
-    Winners return ``0.0`` and losers return ``1.0`` according to cluster free slots.
+    The single winner reports ``0.0`` and every other pod reports ``1.0``, so the server
+    keeps offering jobs to the pod that is filling toward its target.
     """
 
     _ = store
 
     def load_fnc(*args: Any, **kwargs: Any) -> float:
         _ = (args, kwargs)
-        local = tracker.get_local_occupancy()
-        local_free = local.free_slots(room_target_n=config.room_target_n)
-        cluster = tracker.get_cluster_free_slots()
-        winner_threshold = min_positive_free_slots(cluster.values())
         return choose_load_signal(
-            local_free_slots=local_free,
-            min_positive_free_slots=winner_threshold,
+            local_pod_id=config.pod_id,
+            free_slots_by_pod=tracker.get_cluster_free_slots(),
         )
 
     return load_fnc

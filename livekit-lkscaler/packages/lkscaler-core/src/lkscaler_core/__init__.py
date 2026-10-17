@@ -1,6 +1,6 @@
 from .admission import AdmissionResult, cleanup_unassigned_reservation, reserve_for_admission
 from .config import BinpackConfig
-from .load_signal import choose_load_signal, min_positive_free_slots
+from .load_signal import choose_load_signal, min_positive_free_slots, pick_winner_pod
 from .models import PodOccupancy, ReservationRecord, RoomRecord
 from .paths import ZkPaths
 from .reservations import InMemoryReservationStore, ReservationStore
@@ -23,5 +23,6 @@ __all__ = [
     "choose_load_signal",
     "cleanup_unassigned_reservation",
     "min_positive_free_slots",
+    "pick_winner_pod",
     "reserve_for_admission",
 ]

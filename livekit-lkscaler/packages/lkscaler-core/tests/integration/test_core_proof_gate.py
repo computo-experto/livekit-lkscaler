@@ -5,7 +5,7 @@ from time import perf_counter
 
 import pytest
 from lkscaler_core.admission import cleanup_unassigned_reservation, reserve_for_admission
-from lkscaler_core.load_signal import choose_load_signal, min_positive_free_slots
+from lkscaler_core.load_signal import choose_load_signal
 from lkscaler_core.models import PodOccupancy
 from lkscaler_core.reservations import InMemoryReservationStore
 
@@ -56,17 +56,15 @@ def test_binpack_trend_under_synthetic_churn() -> None:
 
     for _ in range(6):
         free_slots = {pod: room_target_n - used for pod, used in occupancy.items()}
-        threshold = min_positive_free_slots(free_slots.values())
 
         winners = [
             pod
-            for pod, free in free_slots.items()
-            if choose_load_signal(local_free_slots=free, min_positive_free_slots=threshold) == 0.0
+            for pod in free_slots
+            if choose_load_signal(local_pod_id=pod, free_slots_by_pod=free_slots) == 0.0
         ]
-        assert winners, "Expected at least one winner pod"
+        assert len(winners) == 1, f"Expected exactly one winner pod, found {winners}"
 
-        selected = "pod-a" if "pod-a" in winners else winners[0]
-        assigned_sequence.append(selected)
-        occupancy[selected] += 1
+        assigned_sequence.append(winners[0])
+        occupancy[winners[0]] += 1
 
     assert assigned_sequence == ["pod-a", "pod-a", "pod-a", "pod-b", "pod-b", "pod-b"]
