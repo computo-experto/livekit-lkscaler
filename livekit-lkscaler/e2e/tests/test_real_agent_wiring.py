@@ -8,16 +8,21 @@ server is really the placement formula. All of that is checkable in-process.
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
+import sys
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
-from lkscaler_core import InMemoryReservationStore, PodOccupancy, ReservationRecord
+import pytest
+from lkscaler_core import InMemoryReservationStore, ReservationRecord
 from lkscaler_core.state import PodState
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "real_agent.py"
+_POD_ID = "real-agent-1"
 
 
 def _fixture() -> Any:
@@ -25,6 +30,7 @@ def _fixture() -> Any:
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -32,6 +38,14 @@ def _fixture() -> Any:
 class StubServer:
     def __init__(self, active_jobs: int = 0) -> None:
         self.active_jobs = [object() for _ in range(active_jobs)]
+
+
+class StubJobContext:
+    def __init__(self, job_id: str) -> None:
+        self.job = SimpleNamespace(id=job_id)
+
+    async def connect(self) -> None:
+        return None
 
 
 class StubClusterStore:
@@ -52,7 +66,7 @@ class StubClusterStore:
 
 def _record(job_id: str, *, now: datetime, ttl_sec: int = 30) -> ReservationRecord:
     return ReservationRecord(
-        pod_id="real-agent-1",
+        pod_id=_POD_ID,
         job_id=job_id,
         created_at=now,
         expires_at=now + timedelta(seconds=ttl_sec),
@@ -143,16 +157,57 @@ def test_load_value_is_the_placement_formula() -> None:
 def test_publish_reports_free_slots_from_occupancy() -> None:
     fixture = _fixture()
     cluster = StubClusterStore({})
+    backend = (InMemoryReservationStore(), cluster, None)
+    _, tracker, _, _ = fixture.build_worker(backend=backend)
+    tracker.attach(StubServer(active_jobs=2))
+    tracker.note_reservation("job-1", _record("job-1", now=datetime.now(UTC)))
 
-    fixture._publish(
-        cluster,
-        pod_id="real-agent-1",
-        occupancy=PodOccupancy(active_rooms=2, reservations=1),
-        room_target_n=3,
-    )
+    fixture.publish(fixture._ensure_runtime())
 
+    runtime = fixture._ensure_runtime()
     state = cluster.published[0]
-    assert state.pod_id == "real-agent-1"
-    assert state.free_slots == 0
+    assert state.pod_id == runtime.config.pod_id
     assert state.active_rooms == 2
     assert state.reservations == 1
+    assert state.free_slots == runtime.config.room_target_n - 3
+
+
+@pytest.mark.asyncio
+async def test_entrypoint_in_a_job_process_releases_the_reservation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture()
+    inner = InMemoryReservationStore()
+    backend = (inner, None, None)
+    monkeypatch.setenv("LKSCALER_POD_ID", _POD_ID)
+    _, tracker, _, _ = fixture.build_worker(backend=backend)
+    now = datetime.now(UTC)
+    record = _record("job-1", now=now)
+    assert inner.create(record) is True
+    tracker.note_reservation("job-1", record)
+
+    # A job process starts with no runtime and must build its own, exactly as the SDK
+    # spawns it; the reservation it releases is the one the parent's handler created.
+    fixture._runtime = None
+    monkeypatch.setattr(fixture, "_build_backend", lambda: backend)
+    job = asyncio.create_task(fixture.entrypoint(StubJobContext("job-1")))
+    try:
+        await asyncio.wait_for(_await_gone(inner, "job-1"), timeout=5)
+    finally:
+        job.cancel()
+
+    assert inner.get(pod_id=record.pod_id, job_id="job-1") is None
+    assert fixture._runtime is not None
+    assert fixture._runtime.tracker.get_local_occupancy().reservations == 0
+    # The parent's tracker keeps its own pending entry until the TTL prunes it, which is
+    # why the workers are configured with a short LKSCALER_RESERVATION_TTL_SEC.
+    assert tracker.get_local_occupancy().reservations == 1
+
+
+async def _await_gone(store: InMemoryReservationStore, job_id: str) -> None:
+    deadline = datetime.now(UTC) + timedelta(seconds=5)
+    while datetime.now(UTC) < deadline:
+        if store.get(pod_id=_POD_ID, job_id=job_id) is None:
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError(f"reservation {job_id} was never released")

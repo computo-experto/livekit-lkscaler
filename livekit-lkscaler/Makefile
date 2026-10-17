@@ -1,4 +1,4 @@
-.PHONY: format lint-check lint-fix typecheck test test-unit test-integration test-integration-zookeeper test-integration-redis test-e2e test-e2e-backends test-real-agent-wiring test-coverage test-proof all-checks milestone-gate proof-gate release-verify release-preflight verify-testpypi-install
+.PHONY: format lint-check lint-fix typecheck test test-unit test-integration test-integration-zookeeper test-integration-redis test-e2e test-e2e-backends test-real-agent-wiring test-real-agent-scenarios test-coverage test-proof all-checks milestone-gate proof-gate release-verify release-preflight verify-testpypi-install
 
 COVERAGE_MIN ?= 90
 
@@ -40,6 +40,9 @@ test-e2e-backends:
 
 test-real-agent-wiring:
 	uv run pytest e2e/tests/test_real_agent_wiring.py
+
+test-real-agent-scenarios:
+	bash scripts/run_e2e_real_agents.sh
 
 test-proof:
 	bash scripts/run_proof_gate.sh
