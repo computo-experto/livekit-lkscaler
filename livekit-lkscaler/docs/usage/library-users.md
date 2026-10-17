@@ -105,6 +105,6 @@ For field-by-field details, see [Configuration](configuration.md).
 - `on_request` creates a reservation before the worker accepts the job.
 - If a reservation cannot be created, the request is rejected.
 - If acceptance fails after reservation creation, the reservation is cleaned up.
-- `load_fnc` reports `0.0` for a winning worker and `1.0` for a non-winning worker.
+- `load_fnc` reports `0.0` for the single winning worker and `1.0` for every other worker.
 
 For operational behavior and failure handling, see [Operations](operations.md).

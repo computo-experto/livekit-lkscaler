@@ -23,6 +23,7 @@ from lkscaler_core.state import PodState
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "real_agent.py"
 _POD_ID = "real-agent-1"
+_PEER_ID = f"{_POD_ID}-peer"
 
 
 def _fixture() -> Any:
@@ -137,21 +138,30 @@ def test_build_worker_wires_the_hooks_and_threshold() -> None:
     assert tracker is not None
 
 
-def test_load_value_is_the_placement_formula() -> None:
+def test_load_value_is_the_unique_winner_signal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LKSCALER_POD_ID", _POD_ID)
     fixture = _fixture()
-    cluster = StubClusterStore({"real-agent-1": 2, "real-agent-2": 1})
+    cluster = StubClusterStore({_POD_ID: 2, _PEER_ID: 1})
     backend = (InMemoryReservationStore(), cluster, None)
     options, tracker, _, _ = fixture.build_worker(backend=backend)
     load_one_arg = cast("Callable[[Any], float]", options.load_fnc)
 
-    # Cluster minimum is 1 and this worker has one active job (free = 2 - 1), so it wins.
+    # The peer holds the fewest free slots, so the server has no reason to offer here.
+    assert load_one_arg(StubServer(active_jobs=1)) == 1.0
+
+    # Once this worker is the most loaded pod with room, it is the one job offers land on.
+    cluster._free = {_POD_ID: 1, _PEER_ID: 3}
     assert load_one_arg(StubServer(active_jobs=1)) == 0.0
 
-    cluster._free = {"real-agent-1": 1, "real-agent-2": 2}
+    # Two equally free pods must not both advertise; the lower pod id is the winner.
+    cluster._free = {_POD_ID: 2, _PEER_ID: 2}
+    assert _POD_ID < _PEER_ID
+    assert load_one_arg(StubServer(active_jobs=1)) == 0.0
 
-    # Three active jobs put this worker over its target (free = 2 - 3 < 0), so it is not the winner.
-    assert load_one_arg(StubServer(active_jobs=3)) == 1.0
-    assert tracker.get_cluster_free_slots() == {"real-agent-1": 1, "real-agent-2": 2}
+    # A worker with no free slots stops advertising itself and the peer takes over.
+    cluster._free = {_POD_ID: 0, _PEER_ID: 2}
+    assert load_one_arg(StubServer(active_jobs=1)) == 1.0
+    assert tracker.get_cluster_free_slots() == {_POD_ID: 0, _PEER_ID: 2}
 
 
 def test_publish_reports_free_slots_from_occupancy() -> None:
