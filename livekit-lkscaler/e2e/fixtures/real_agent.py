@@ -73,7 +73,13 @@ class ClusterCapableStore(Protocol):
     def read_pod_states(self) -> dict[str, PodState]: ...
 
     def publish_room(
-        self, *, room_id: str, pod_id: str, job_id: str, started_at: datetime
+        self,
+        *,
+        room_id: str,
+        pod_id: str,
+        job_id: str,
+        started_at: datetime,
+        connected_at: datetime | None = None,
     ) -> None: ...
 
     def remove_room(self, *, room_id: str) -> None: ...
@@ -206,6 +212,19 @@ class Runtime:
         )
         logger.info("room recorded room=%s job=%s pod=%s", room_id, job_id, self.config.pod_id)
 
+    def mark_room_connected(self, *, room_id: str, job_id: str) -> None:
+        """Record that the worker finished connecting to the room it was assigned."""
+        if self.cluster_store is None or not room_id:
+            return
+        self.cluster_store.publish_room(
+            room_id=room_id,
+            pod_id=self.config.pod_id,
+            job_id=job_id,
+            started_at=datetime.now(UTC),
+            connected_at=datetime.now(UTC),
+        )
+        logger.info("room connected room=%s pod=%s", room_id, self.config.pod_id)
+
     def finish_room(self, *, room_id: str) -> None:
         if self.cluster_store is None or not room_id:
             return
@@ -282,6 +301,7 @@ async def entrypoint(ctx: JobContext) -> None:
     publish(runtime)
     logger.info("job assigned pod=%s job=%s", runtime.config.pod_id, job_id)
     await ctx.connect()
+    runtime.mark_room_connected(room_id=room_id, job_id=job_id)
     closed = asyncio.Event()
     ctx.room.on("disconnected", lambda *_: closed.set())
     try:

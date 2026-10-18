@@ -20,7 +20,13 @@ class RoomRegistry(Protocol):
     """The room slice of a coordination backend."""
 
     def publish_room(
-        self, *, room_id: str, pod_id: str, job_id: str, started_at: datetime
+        self,
+        *,
+        room_id: str,
+        pod_id: str,
+        job_id: str,
+        started_at: datetime,
+        connected_at: datetime | None = None,
     ) -> None: ...
 
     def remove_room(self, *, room_id: str) -> None: ...
@@ -39,11 +45,21 @@ def decode_rooms(payloads: Iterable[Mapping[str, Any]]) -> list[RoomRecord]:
                     pod_id=str(payload["pod_id"]),
                     job_id=str(payload["job_id"]),
                     started_at=datetime.fromisoformat(str(payload["started_at"])),
+                    connected_at=_optional_time(payload.get("connected_at")),
                 )
             )
         except (KeyError, ValueError):
             continue
     return records
+
+
+def _optional_time(value: object) -> datetime | None:
+    if value is None:
+        return None
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
 
 
 def live_rooms(

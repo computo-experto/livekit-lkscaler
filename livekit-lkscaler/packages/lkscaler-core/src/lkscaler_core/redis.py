@@ -176,7 +176,15 @@ class RedisStateStore(ReservationStore):
     def free_slots_by_pod(self) -> dict[str, int]:
         return {pod_id: state.free_slots for pod_id, state in self.read_pod_states().items()}
 
-    def publish_room(self, *, room_id: str, pod_id: str, job_id: str, started_at: datetime) -> None:
+    def publish_room(
+        self,
+        *,
+        room_id: str,
+        pod_id: str,
+        job_id: str,
+        started_at: datetime,
+        connected_at: datetime | None = None,
+    ) -> None:
         # No TTL: a room outlives the pod-state window by design, and it is retired by its owner on
         # job finish or swept once the owner stops publishing state.
         self._client.set_value(
@@ -187,6 +195,9 @@ class RedisStateStore(ReservationStore):
                     "pod_id": pod_id,
                     "job_id": job_id,
                     "started_at": _as_utc(started_at).isoformat(),
+                    "connected_at": None
+                    if connected_at is None
+                    else _as_utc(connected_at).isoformat(),
                 }
             ),
             ttl_ms=None,

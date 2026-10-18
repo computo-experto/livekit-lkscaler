@@ -33,3 +33,4 @@ class RoomRecord:
     pod_id: str
     job_id: str
     started_at: datetime
+    connected_at: datetime | None = None

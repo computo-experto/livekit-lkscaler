@@ -78,3 +78,12 @@ def test_a_removed_room_stops_counting_immediately() -> None:
     assert rooms_by_pod(rooms, states) == {"pod-a": 1}
 
     assert rooms_by_pod([], states) == {"pod-a": 0}
+
+
+def test_connected_at_is_optional_and_decoded_when_present() -> None:
+    now = datetime.now(UTC)
+    pending = decode_rooms([{**_payload("m9-a", "pod-a"), "connected_at": None}])
+    connected = decode_rooms([{**_payload("m9-b", "pod-a"), "connected_at": now.isoformat()}])
+
+    assert pending[0].connected_at is None
+    assert connected[0].connected_at == now
