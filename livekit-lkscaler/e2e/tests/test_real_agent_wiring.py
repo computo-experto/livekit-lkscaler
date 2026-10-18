@@ -232,6 +232,31 @@ def test_publish_reports_free_slots_from_occupancy() -> None:
     assert state.free_slots == runtime.config.room_target_n - 3
 
 
+def test_a_room_record_retires_its_own_pending_reservation() -> None:
+    fixture = _fixture()
+    cluster = StubClusterStore({})
+    backend = (InMemoryReservationStore(), cluster, None)
+    _, tracker, _, _ = fixture.build_worker(backend=backend)
+    tracker.attach(StubServer(active_jobs=0))
+    runtime = fixture._ensure_runtime()
+    job_id = "job-with-room"
+    cluster.publish_room(
+        room_id="m9-a",
+        pod_id=runtime.config.pod_id,
+        job_id=job_id,
+        started_at=datetime.now(UTC),
+    )
+    tracker.note_reservation(job_id, _record(job_id, now=datetime.now(UTC)))
+
+    occupancy = tracker.get_local_occupancy()
+
+    assert occupancy.active_rooms == 1
+    assert occupancy.reservations == 0
+    assert occupancy.free_slots(room_target_n=runtime.config.room_target_n) == (
+        runtime.config.room_target_n - 1
+    )
+
+
 @pytest.mark.asyncio
 async def test_entrypoint_in_a_job_process_releases_the_reservation(
     monkeypatch: pytest.MonkeyPatch,

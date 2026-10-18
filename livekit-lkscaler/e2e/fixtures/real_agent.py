@@ -131,20 +131,22 @@ class WorkerTracker:
             return []
         return decode_rooms(self._cluster_store.read_rooms())
 
-    def _live_room_count(self) -> int:
-        if self._cluster_store is None:
-            return len(self._server.active_jobs) if self._server is not None else 0
-        return sum(1 for room in self._live_rooms() if room.pod_id == self._pod_id)
+    def _own_room_job_ids(self) -> set[str]:
+        return {room.job_id for room in self._live_rooms() if room.pod_id == self._pod_id}
 
     def get_local_occupancy(self) -> PodOccupancy:
-        active = self._live_room_count()
-        running = self._running_job_ids()
+        if self._cluster_store is None:
+            active = len(self._server.active_jobs) if self._server is not None else 0
+            own_rooms: set[str] = set()
+        else:
+            own_rooms = self._own_room_job_ids()
+            active = len(own_rooms)
         with self._lock:
             self._prune_locked()
-            # A job the server is already running is a room, not a claim: counting its own
-            # reservation too publishes free = capacity - 2 for one running job, so a worker
-            # holding one of two slots announces itself full and loses the winner slot.
-            for job_id in running:
+            # A job that already has a room record is a room, not a claim: the parent keeps its
+            # pending entry until the job ends, so counting both publishes free = capacity - 2 for
+            # one running job and the worker declines work it has room for.
+            for job_id in self._running_job_ids() | own_rooms:
                 self._pending.pop(job_id, None)
             return PodOccupancy(active_rooms=active, reservations=len(self._pending))
 
@@ -202,11 +204,13 @@ class Runtime:
             job_id=job_id,
             started_at=datetime.now(UTC),
         )
+        logger.info("room recorded room=%s job=%s pod=%s", room_id, job_id, self.config.pod_id)
 
     def finish_room(self, *, room_id: str) -> None:
         if self.cluster_store is None or not room_id:
             return
         self.cluster_store.remove_room(room_id=room_id)
+        logger.info("room released room=%s pod=%s", room_id, self.config.pod_id)
 
     def sweep_orphan_rooms(self) -> None:
         """Drop records left by workers whose pod state has expired."""

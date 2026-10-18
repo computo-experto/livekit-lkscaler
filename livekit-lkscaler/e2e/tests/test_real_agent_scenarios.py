@@ -82,6 +82,24 @@ def _running_rooms(store: ClusterStateStore) -> list[str]:
     return [str(record["room_id"]) for record in cast(RoomRegistry, store).read_rooms()]
 
 
+async def _await_release(
+    store: ClusterStateStore, *, holder: str, room_name: str, timeout: float = 60.0
+) -> None:
+    """Wait for the room record to go and the holder's published count to follow it."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        rooms = _running_rooms(store)
+        if _rooms(store, holder) == 0 and room_name not in rooms:
+            return
+        await asyncio.sleep(0.25)
+    states = {
+        pod: (state.active_rooms, state.reservations) for pod, state in _states(store).items()
+    }
+    pytest.fail(
+        f"{holder} never released {room_name}: states={states}, rooms={_running_rooms(store)}"
+    )
+
+
 def _rooms(store: ClusterStateStore, pod_id: str) -> int:
     return _states(store)[pod_id].active_rooms
 
@@ -292,14 +310,7 @@ async def test_deleting_the_room_releases_the_worker_slot(stack: Stack) -> None:
     await _delete_room(client, "m9-release-1")
     rooms.remove("m9-release-1")
 
-    await _poll(
-        lambda: _rooms(store, holder) == 0 or None,
-        describe=f"{holder} to release the slot once the room ends",
-    )
-    await _poll(
-        lambda: "m9-release-1" not in _running_rooms(store) or None,
-        describe="the shared room list to drop m9-release-1",
-    )
+    await _await_release(store, holder=holder, room_name="m9-release-1")
 
 
 async def test_steady_dispatch_packs_one_worker_to_its_target(stack: Stack) -> None:
