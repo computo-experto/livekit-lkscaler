@@ -24,7 +24,7 @@ test: ## Run everything pytest collects by default
 	uv run pytest
 
 test-unit: ## Run the package unit tests
-	uv run pytest packages/lkscaler-core/tests/unit packages/lkscaler-livekit/tests/unit
+	uv run pytest packages/lkscaler-core/tests/unit packages/lkscaler-livekit/tests/unit packages/lkscaler-keda/tests/unit
 
 test-integration: ## Run the package integration tests (skip without an external service)
 	uv run pytest packages/lkscaler-core/tests/integration packages/lkscaler-livekit/tests/integration

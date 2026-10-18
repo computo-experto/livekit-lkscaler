@@ -169,12 +169,27 @@ def test_room_publish_and_removal() -> None:
             "pod_id": "pod-a",
             "job_id": "job-1",
             "started_at": started.isoformat(),
+            "connected_at": None,
         }
     ]
 
     store.remove_room(room_id="room-1")
 
     assert store.read_rooms() == []
+
+
+def test_a_room_record_outlives_the_pod_state_ttl() -> None:
+    store, client = _store()
+    store.publish_room(
+        room_id="room-1",
+        pod_id="pod-a",
+        job_id="job-1",
+        started_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+
+    client.advance_ms(600_000)
+
+    assert [room["room_id"] for room in store.read_rooms()] == ["room-1"]
 
 
 def test_naive_timestamps_are_treated_as_utc() -> None:

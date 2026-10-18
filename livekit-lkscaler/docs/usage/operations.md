@@ -34,6 +34,10 @@ against a burst of five dispatched rooms:
   advertising itself available;
 - the worker already at its bound received all ten of the server's dispatch attempts, the idle worker none.
 
+While a job process releases its reservation, the parent's local reservation keeps counting until
+`reservation_ttl_sec` expires. Capacity therefore reads low for at most that TTL after a job hands off or exits;
+keep the TTL short relative to your dispatch rate if that matters to your packing.
+
 So a room offered to a worker which then declines it (the admission handler rejects so the room is not
 terminated) waits for that worker rather than moving to an idle peer. Plan headroom for bursts and treat
 scale-up latency as a capacity budget; per-room redistribution during a burst is not something to rely on.

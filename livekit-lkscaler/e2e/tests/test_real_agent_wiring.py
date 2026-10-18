@@ -54,9 +54,13 @@ class StubClusterStore:
     def __init__(self, free_by_pod: dict[str, int]) -> None:
         self._free = dict(free_by_pod)
         self.published: list[PodState] = []
+        self.rooms: dict[str, dict[str, Any]] = {}
 
     def publish_pod_state(self, state: PodState) -> None:
         self.published.append(state)
+
+    def read_pod_states(self) -> dict[str, PodState]:
+        return {state.pod_id: state for state in self.published}
 
     def free_slots_by_pod(self) -> dict[str, int]:
         return dict(self._free)
@@ -64,6 +68,22 @@ class StubClusterStore:
     def remove_expired(self, *, now: datetime) -> int:
         _ = now
         return 0
+
+    def publish_room(
+        self, *, room_id: str, pod_id: str, job_id: str, started_at: datetime
+    ) -> None:
+        self.rooms[room_id] = {
+            "room_id": room_id,
+            "pod_id": pod_id,
+            "job_id": job_id,
+            "started_at": started_at.isoformat(),
+        }
+
+    def remove_room(self, *, room_id: str) -> None:
+        self.rooms.pop(room_id, None)
+
+    def read_rooms(self) -> list[dict[str, Any]]:
+        return list(self.rooms.values())
 
 
 def _record(job_id: str, *, now: datetime, ttl_sec: int = 30) -> ReservationRecord:
@@ -190,18 +210,51 @@ def test_publish_reports_free_slots_from_occupancy() -> None:
     cluster = StubClusterStore({})
     backend = (InMemoryReservationStore(), cluster, None)
     _, tracker, _, _ = fixture.build_worker(backend=backend)
-    tracker.attach(StubServer(active_jobs=2))
+    tracker.attach(StubServer(active_jobs=0))
+    runtime = fixture._ensure_runtime()
+    # Occupancy comes from the shared room list, so the store is what says two rooms are live.
+    for room in ("m9-a", "m9-b"):
+        cluster.publish_room(
+            room_id=room,
+            pod_id=runtime.config.pod_id,
+            job_id=f"job-{room}",
+            started_at=datetime.now(UTC),
+        )
     # A claim for a job the server is not running yet: only those count as reservations.
     tracker.note_reservation("job-pending", _record("job-pending", now=datetime.now(UTC)))
 
-    fixture.publish(fixture._ensure_runtime())
+    fixture.publish(runtime)
 
-    runtime = fixture._ensure_runtime()
     state = cluster.published[0]
     assert state.pod_id == runtime.config.pod_id
     assert state.active_rooms == 2
     assert state.reservations == 1
     assert state.free_slots == runtime.config.room_target_n - 3
+
+
+def test_a_room_record_retires_its_own_pending_reservation() -> None:
+    fixture = _fixture()
+    cluster = StubClusterStore({})
+    backend = (InMemoryReservationStore(), cluster, None)
+    _, tracker, _, _ = fixture.build_worker(backend=backend)
+    tracker.attach(StubServer(active_jobs=0))
+    runtime = fixture._ensure_runtime()
+    job_id = "job-with-room"
+    cluster.publish_room(
+        room_id="m9-a",
+        pod_id=runtime.config.pod_id,
+        job_id=job_id,
+        started_at=datetime.now(UTC),
+    )
+    tracker.note_reservation(job_id, _record(job_id, now=datetime.now(UTC)))
+
+    occupancy = tracker.get_local_occupancy()
+
+    assert occupancy.active_rooms == 1
+    assert occupancy.reservations == 0
+    assert occupancy.free_slots(room_target_n=runtime.config.room_target_n) == (
+        runtime.config.room_target_n - 1
+    )
 
 
 @pytest.mark.asyncio

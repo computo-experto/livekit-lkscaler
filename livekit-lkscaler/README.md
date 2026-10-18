@@ -4,6 +4,25 @@ LiveKit agent worker hooks and placement primitives that make self-hosted Agent 
 
 No particular autoscaler is required. Use Kubernetes HPA or KEDA if you have them, or any replica manager that reacts to the `load_fnc` value; shared state comes from ZooKeeper or from any store you already run (see [Shared state](#shared-state)).
 
+## Scope and limits
+
+Use LKScaler when you run LiveKit Agents yourself and want placement and replica counts to come from one
+shared, inspectable view of the fleet. What ships, and what stays yours:
+
+- Shipped: the admission decision and its overflow guard, single-winner load signalling, reservation claims
+  with TTL expiry, the shared room list every consumer derives occupancy from (`lkscaler_core.rooms`),
+  coordination over ZooKeeper or Redis, and the KEDA external scaler.
+- Yours: the store connection, the tracker that publishes each worker's occupancy on a cadence, and the
+  replica-manager policy. `e2e/fixtures/real_agent.py` is the reference composition; it is test code today, not
+  a packaged runtime.
+- The scaler never asks for zero replicas: a pool with no workers cannot accept a dispatch, so one is the floor
+  (`minReplicaCount: 1`) and KEDA's scale-to-zero path is unused by design.
+- A dispatch that a worker declines can stay queued on the server instead of moving to an idle peer; the
+  admission handler cannot re-route it. Size free capacity to your burst pattern rather than relying on
+  re-dispatch. Measurements are in [operations](docs/usage/operations.md).
+- While a job process releases its reservation, the parent's local reservation is still counted until
+  `reservation_ttl_sec` expires, so free capacity reads slightly low for at most that TTL.
+
 ## Workspace layout
 
 - `packages/lkscaler-core`: core bin-packing and reservation lifecycle logic.

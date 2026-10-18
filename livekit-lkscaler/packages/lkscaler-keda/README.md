@@ -15,6 +15,10 @@ required_workers = ceil((used_slots + minFreeSlots) / (roomTargetN + overflowMar
 The ScaledObject's HPA target is `1`, so Kubernetes moves the deployment to exactly that many workers, bounded
 by `minReplicaCount` and `maxReplicaCount`.
 
+The scaler never asks for zero replicas. A pool with no workers cannot accept a dispatch, so one replica is
+the floor and `IsActive` always answers true: KEDA's scale-to-zero path is deliberately unused. Set
+`minReplicaCount: 1` and let `maxReplicaCount` bound the ceiling.
+
 Headroom is expressed as a **number of slots** (`minFreeSlots`), not a percentage: it says how much admission
 capacity must stay free for the burst pattern you expect. Provisioning that headroom is your capacity policy;
 the scaler only holds the number you set. Do not expect a burst beyond it to be absorbed - see

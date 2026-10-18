@@ -137,12 +137,21 @@ class ZooKeeperStateStore(ReservationStore):
     def free_slots_by_pod(self) -> dict[str, int]:
         return {pod_id: state.free_slots for pod_id, state in self.read_pod_states().items()}
 
-    def publish_room(self, *, room_id: str, pod_id: str, job_id: str, started_at: datetime) -> None:
+    def publish_room(
+        self,
+        *,
+        room_id: str,
+        pod_id: str,
+        job_id: str,
+        started_at: datetime,
+        connected_at: datetime | None = None,
+    ) -> None:
         payload = {
             "room_id": room_id,
             "pod_id": pod_id,
             "job_id": job_id,
             "started_at": _as_utc(started_at).isoformat(),
+            "connected_at": None if connected_at is None else _as_utc(connected_at).isoformat(),
         }
         self._client.upsert(
             self._paths.room_node(room_id),

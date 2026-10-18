@@ -18,12 +18,13 @@ import os
 import time
 from collections.abc import AsyncIterator, Callable
 from functools import partial
-from typing import Any
+from typing import Any, cast
 
 import aiohttp
 import pytest
 import pytest_asyncio
 from livekit import api
+from lkscaler_core import RoomRegistry
 from lkscaler_core.state import ClusterStateStore, PodState
 
 pytestmark = [pytest.mark.e2e, pytest.mark.asyncio]
@@ -70,6 +71,35 @@ def _states(store: ClusterStateStore) -> dict[str, PodState]:
 def _registered_pods(store: ClusterStateStore) -> dict[str, PodState] | None:
     states = _states(store)
     return states if all(pod_id in states for pod_id in PODS) else None
+
+
+def _connected(store: ClusterStateStore, room_name: str) -> bool | None:
+    for record in cast(RoomRegistry, store).read_rooms():
+        if record.get("room_id") == room_name and record.get("connected_at"):
+            return True
+    return None
+
+
+def _running_rooms(store: ClusterStateStore) -> list[str]:
+    return [str(record["room_id"]) for record in cast(RoomRegistry, store).read_rooms()]
+
+
+async def _await_release(
+    store: ClusterStateStore, *, holder: str, room_name: str, timeout: float = 60.0
+) -> None:
+    """Wait for the room record to go and the holder's published count to follow it."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        rooms = _running_rooms(store)
+        if _rooms(store, holder) == 0 and room_name not in rooms:
+            return
+        await asyncio.sleep(0.25)
+    states = {
+        pod: (state.active_rooms, state.reservations) for pod, state in _states(store).items()
+    }
+    pytest.fail(
+        f"{holder} never released {room_name}: states={states}, rooms={_running_rooms(store)}"
+    )
 
 
 def _rooms(store: ClusterStateStore, pod_id: str) -> int:
@@ -272,13 +302,17 @@ async def test_deleting_the_room_releases_the_worker_slot(stack: Stack) -> None:
         describe="the dispatched room to exist on the server",
     )
 
+    # Ending the room before the worker finishes connecting stalls its job for a full timeout and
+    # the cancelled path is not where the record is released, so wait for the connection marker.
+    await _poll(
+        lambda: _connected(store, "m9-release-1"),
+        describe="the dispatched worker to finish connecting to m9-release-1",
+    )
+
     await _delete_room(client, "m9-release-1")
     rooms.remove("m9-release-1")
 
-    await _poll(
-        lambda: _rooms(store, holder) == 0 or None,
-        describe=f"{holder} to release the slot once the room ends",
-    )
+    await _await_release(store, holder=holder, room_name="m9-release-1")
 
 
 async def test_steady_dispatch_packs_one_worker_to_its_target(stack: Stack) -> None:

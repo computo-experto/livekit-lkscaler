@@ -208,6 +208,7 @@ def test_room_publish_and_removal() -> None:
             "pod_id": "pod-a",
             "job_id": "job-1",
             "started_at": started.isoformat(),
+            "connected_at": None,
         }
     ]
 
