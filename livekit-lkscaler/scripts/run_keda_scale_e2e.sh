@@ -13,6 +13,7 @@ ZK_PORT="12181"
 ARTIFACT_DIR="e2e/artifacts/keda-scale"
 
 cd "${ROOT_DIR}"
+mkdir -p "${ARTIFACT_DIR}"
 
 for cmd in kind kubectl docker uv; do
 	if ! command -v "${cmd}" >/dev/null 2>&1; then
@@ -93,7 +94,14 @@ kubectl apply -f e2e/kind/scaler.yaml
 kubectl rollout status deployment/lkscaler-keda -n "${NAMESPACE}" --timeout=180s
 
 kubectl apply -f e2e/kind/scaledobject.yaml
-kubectl wait --for=create "hpa/keda-hpa-livekit-agents-keda" -n "${NAMESPACE}" --timeout=180s
+for _ in $(seq 1 90); do
+	kubectl get "hpa/keda-hpa-livekit-agents-keda" -n "${NAMESPACE}" >/dev/null 2>&1 && break
+	sleep 2
+done
+if ! kubectl get "hpa/keda-hpa-livekit-agents-keda" -n "${NAMESPACE}" >/dev/null 2>&1; then
+	echo "error: KEDA did not create the HorizontalPodAutoscaler" >&2
+	exit 1
+fi
 
 echo "=== port-forwarding the LiveKit API ==="
 kubectl port-forward -n "${NAMESPACE}" svc/livekit "${LIVEKIT_PORT}:7880" >/dev/null 2>&1 &
