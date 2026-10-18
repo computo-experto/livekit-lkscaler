@@ -69,9 +69,7 @@ class StubClusterStore:
         _ = now
         return 0
 
-    def publish_room(
-        self, *, room_id: str, pod_id: str, job_id: str, started_at: datetime
-    ) -> None:
+    def publish_room(self, *, room_id: str, pod_id: str, job_id: str, started_at: datetime) -> None:
         self.rooms[room_id] = {
             "room_id": room_id,
             "pod_id": pod_id,

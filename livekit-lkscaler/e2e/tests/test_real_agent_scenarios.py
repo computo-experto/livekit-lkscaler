@@ -85,20 +85,26 @@ def _running_rooms(store: ClusterStateStore) -> list[str]:
 
 
 async def _await_release(
-    store: ClusterStateStore, *, holder: str, room_name: str, timeout: float = 60.0
+    store: ClusterStateStore,
+    *,
+    holder: str,
+    room_name: str,
+    expected: int,
+    timeout: float = 60.0,
 ) -> None:
-    """Wait for the room record to go and the holder's published count to follow it."""
+    """Wait until the holder drops to `expected`, ignoring rooms other scenarios left."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         rooms = _running_rooms(store)
-        if _rooms(store, holder) == 0 and room_name not in rooms:
+        if _rooms(store, holder) == expected and room_name not in rooms:
             return
         await asyncio.sleep(0.25)
     states = {
         pod: (state.active_rooms, state.reservations) for pod, state in _states(store).items()
     }
     pytest.fail(
-        f"{holder} never released {room_name}: states={states}, rooms={_running_rooms(store)}"
+        f"{holder} never released {room_name}: expected {expected} rooms, "
+        f"states={states}, rooms={_running_rooms(store)}"
     )
 
 
@@ -312,7 +318,9 @@ async def test_deleting_the_room_releases_the_worker_slot(stack: Stack) -> None:
     await _delete_room(client, "m9-release-1")
     rooms.remove("m9-release-1")
 
-    await _await_release(store, holder=holder, room_name="m9-release-1")
+    await _await_release(
+        store, holder=holder, room_name="m9-release-1", expected=_rooms(store, holder) - 1
+    )
 
 
 async def test_steady_dispatch_packs_one_worker_to_its_target(stack: Stack) -> None:
