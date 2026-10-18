@@ -156,23 +156,17 @@ def test_overflow_guard_bounds_each_worker() -> None:
 
 def test_releasing_a_claim_frees_the_slot() -> None:
     assert _post(f"{AGENT1}/request", {"job_id": "job-1"})["accepted"] is True
-    _wait_for(
-        lambda: _occupancy(AGENT1)["reservations"] == 1, describe="the claim to be recorded"
-    )
+    _wait_for(lambda: _occupancy(AGENT1)["reservations"] == 1, describe="the claim to be recorded")
 
     assert _post(f"{AGENT1}/release", {"job_id": "job-1"})["ok"] is True
 
-    _wait_for(
-        lambda: _occupancy(AGENT1)["reservations"] == 0, describe="the claim to be released"
-    )
+    _wait_for(lambda: _occupancy(AGENT1)["reservations"] == 0, describe="the claim to be released")
     assert _post(f"{AGENT1}/request", {"job_id": "job-2"})["accepted"] is True
 
 
 def test_a_claim_that_is_never_completed_expires() -> None:
     assert _post(f"{AGENT1}/request", {"job_id": "abandoned"})["accepted"] is True
-    _wait_for(
-        lambda: _occupancy(AGENT1)["reservations"] == 1, describe="the claim to be recorded"
-    )
+    _wait_for(lambda: _occupancy(AGENT1)["reservations"] == 1, describe="the claim to be recorded")
 
     _wait_for(
         lambda: _occupancy(AGENT1)["reservations"] == 0,

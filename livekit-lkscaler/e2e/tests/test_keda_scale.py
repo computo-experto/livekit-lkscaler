@@ -234,9 +234,7 @@ async def test_keda_scales_the_worker_deployment_up_and_back_down(
     )
 
     for index in range(1, ROOM_TARGET_N + 1):
-        await _dispatch_until_booked(
-            api_client, store, rooms, f"m9-scale-{index}", timeout=180
-        )
+        await _dispatch_until_booked(api_client, store, rooms, f"m9-scale-{index}", timeout=180)
     used_one_worker = ROOM_TARGET_N
     assert _used_slots(store) == used_one_worker, (
         f"the pool should hold {used_one_worker} slots before the scale assertion, "

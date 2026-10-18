@@ -62,16 +62,12 @@ def _optional_time(value: object) -> datetime | None:
         return None
 
 
-def live_rooms(
-    rooms: Iterable[RoomRecord], pod_states: Mapping[str, PodState]
-) -> list[RoomRecord]:
+def live_rooms(rooms: Iterable[RoomRecord], pod_states: Mapping[str, PodState]) -> list[RoomRecord]:
     """Rooms whose owning pod still publishes state."""
     return [room for room in rooms if room.pod_id in pod_states]
 
 
-def rooms_by_pod(
-    rooms: Iterable[RoomRecord], pod_states: Mapping[str, PodState]
-) -> dict[str, int]:
+def rooms_by_pod(rooms: Iterable[RoomRecord], pod_states: Mapping[str, PodState]) -> dict[str, int]:
     """Live rooms per pod, for the `active_rooms` every pod publishes about itself."""
     counts: dict[str, int] = {pod_id: 0 for pod_id in pod_states}
     for room in live_rooms(rooms, pod_states):
@@ -79,8 +75,6 @@ def rooms_by_pod(
     return counts
 
 
-def orphan_room_ids(
-    rooms: Iterable[RoomRecord], pod_states: Mapping[str, PodState]
-) -> list[str]:
+def orphan_room_ids(rooms: Iterable[RoomRecord], pod_states: Mapping[str, PodState]) -> list[str]:
     """Records left behind by pods whose state has expired; safe for any worker to delete."""
     return [room.room_id for room in rooms if room.pod_id not in pod_states]
